@@ -1,0 +1,239 @@
+"use client";
+
+import { useEffect, useCallback, useRef, useState, useMemo } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation"; 
+import CryptoJS from "crypto-js";
+import { getSocket } from "@/lib/socket";
+import { useGhostStore } from "@/hooks/use-ghost-store";
+import { RadarScreen } from "./radar-screen";
+import { CreateRoomScreen } from "./create-room-screen";
+import { WaitingScreen } from "./waiting-screen";
+import { ChatScreen } from "./chat-screen";
+import { BannedScreen } from "./banned-screen";
+import { NukeOverlay } from "./NukeOverlay";
+import { EntryScreen } from "./entry-screen"; 
+import type { Socket } from "socket.io-client";
+
+const SESSION_KEY = "ghost-pulse-session";
+const IDENTITY_KEY = "ghost_identity";
+const GLOBAL_SALT = process.env.NEXT_PUBLIC_GLOBAL_SALT || "ghost_v1_neural_salt_99";
+const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+export function GhostPulseApp() {
+  const store = useGhostStore();
+  const socketRef = useRef<Socket | null>(null);
+  const [connected, setConnected] = useState(false);
+  const [isIdentified, setIsIdentified] = useState(false); 
+
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const roomSecret = useMemo(() => {
+    if (!store.currentRoom) return "";
+    return CryptoJS.SHA256(store.currentRoom + GLOBAL_SALT).toString();
+  }, [store.currentRoom]);
+
+  const updateRoute = useCallback((view: string, roomId?: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("v", view);
+    if (roomId) params.set("r", roomId);
+    else params.delete("r");
+    router.replace(`${pathname}?${params.toString()}`);
+  }, [searchParams, router, pathname]);
+
+  const handleReset = useCallback(() => {
+    if (store.currentRoom) {
+      localStorage.removeItem(`cache_${store.currentRoom}`);
+      sessionStorage.removeItem(`cache_${store.currentRoom}`);
+    }
+    store.resetRoom();
+    sessionStorage.removeItem(SESSION_KEY);
+    store.setView("radar");
+    updateRoute("radar");
+  }, [store, updateRoute]);
+
+  const handleExitRoom = useCallback(() => {
+    if (socketRef.current && store.currentRoom) {
+      socketRef.current.emit("leave_room", { roomId: store.currentRoom });
+    }
+    handleReset();
+  }, [store.currentRoom, handleReset]);
+
+  useEffect(() => {
+    const session = loadSession();
+    const rawIdentity = localStorage.getItem(IDENTITY_KEY);
+
+    if (rawIdentity) {
+      try {
+        const { alias, createdAt } = JSON.parse(rawIdentity);
+        if (Date.now() - createdAt < ONE_WEEK_MS) {
+          store.setUserAlias(alias);
+          setIsIdentified(true);
+        }
+      } catch (e) { localStorage.removeItem(IDENTITY_KEY); }
+    }
+
+    if (session) {
+      store.setCurrentRoom(session.roomId);
+      store.setRoomName(session.roomName);
+      store.setIsAdmin(session.isAdmin);
+      store.setTimerEnd(session.timerEnd);
+      store.setView("chat");
+
+      const secret = CryptoJS.SHA256(session.roomId + GLOBAL_SALT).toString();
+      const cached = sessionStorage.getItem(`cache_${session.roomId}`);
+      if (cached) {
+        try {
+          const bytes = CryptoJS.AES.decrypt(cached, secret);
+          const decrypted = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+          store.setMessages(decrypted.slice(-20)); 
+        } catch (e) {}
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const socket = getSocket();
+    socketRef.current = socket;
+
+    socket.on("connect", () => {
+      setConnected(true);
+      const session = loadSession();
+      if (session) {
+        socket.emit(session.isAdmin ? "admin_join_room" : "rejoin_room", {
+            roomId: session.roomId,
+            userAlias: store.userAlias
+        });
+      }
+    });
+
+    socket.on("disconnect", () => setConnected(false));
+
+    socket.on("new_message", (payload: any) => {
+      const currentRoomId = payload.roomId || store.currentRoom; 
+      if(!currentRoomId) return;
+      const currentSecret = CryptoJS.SHA256(currentRoomId + GLOBAL_SALT).toString();
+
+      try {
+        const bytes = CryptoJS.AES.decrypt(payload.message, currentSecret);
+        const text = bytes.toString(CryptoJS.enc.Utf8);
+        const newMessage = { ...payload, message: text };
+        
+        store.setMessages((prev) => {
+          if (prev.some(m => m.id === newMessage.id)) return prev;
+          const updated = [...prev, newMessage].slice(-20); 
+          const encrypted = CryptoJS.AES.encrypt(JSON.stringify(updated), currentSecret).toString();
+          sessionStorage.setItem(`cache_${currentRoomId}`, encrypted);
+          return updated;
+        });
+      } catch (e) { }
+    });
+
+    socket.on("access_granted", ({ roomId, roomName, expiresAt }) => {
+      store.setCurrentRoom(roomId);
+      store.setRoomName(roomName);
+      store.setTimerEnd(Number(expiresAt));
+      store.setView("chat");
+      updateRoute("chat", roomId);
+      saveSession({ roomId, roomName: roomName || "Signal", isAdmin: false, timerEnd: Number(expiresAt) });
+    });
+
+    socket.on("room_users_update", (users) => store.setRoomUsers(users));
+    socket.on("join_request", ({ socketId, alias }) => {
+      store.setJoinRequests((prev) => prev.some(r => r.socketId === socketId) ? prev : [...prev, { socketId, alias }]);
+    });
+
+    socket.on("GLOBAL_NUKE", () => store.setNukeFlash(true));
+    socket.on("ROOM_VANISHED", handleReset);
+    socket.on("exiled", handleReset);
+
+    return () => {
+      socket.off("connect");
+      socket.off("access_granted");
+      socket.off("join_request");
+      socket.off("room_users_update"); 
+      socket.off("new_message");
+      socket.off("GLOBAL_NUKE");
+      socket.off("ROOM_VANISHED");
+      socket.off("exiled");
+    };
+  }, [handleReset, updateRoute, store, roomSecret]);
+
+  const handleSendMessage = useCallback((message: string, isWhisper: boolean, whisperTarget?: string | null) => {
+    if (!socketRef.current || !roomSecret || !message.trim()) return;
+    const encrypted = CryptoJS.AES.encrypt(message, roomSecret).toString();
+    socketRef.current.emit("send_message", { 
+        roomId: store.currentRoom, 
+        message: encrypted, 
+        isWhisper, 
+        whisperTarget,
+        alias: store.userAlias
+    });
+  }, [store.currentRoom, roomSecret, store.userAlias]);
+
+  const handleApproveUser = useCallback((socketId: string) => {
+    socketRef.current?.emit("approve_user", { targetSocketId: socketId, roomId: store.currentRoom });
+    store.setJoinRequests((prev) => prev.filter((r) => r.socketId !== socketId));
+  }, [store.currentRoom]);
+
+  if (!isIdentified) return <EntryScreen onIdentify={(name) => {
+    const fullAlias = `${name}#${Math.random().toString(16).substring(2, 6)}`;
+    localStorage.setItem(IDENTITY_KEY, JSON.stringify({ alias: fullAlias, createdAt: Date.now() }));
+    store.setUserAlias(fullAlias);
+    setIsIdentified(true);
+  }} />;
+
+  if (!connected) return <div className="min-h-screen flex items-center justify-center font-mono text-ghost-green animate-pulse uppercase">Syncing Pulse...</div>;
+
+  return (
+    <div className="h-[100dvh] overflow-hidden">
+      <NukeOverlay active={store.nukeFlash} onComplete={() => { store.setNukeFlash(false); handleReset(); }} />
+      {store.view === "chat" && store.currentRoom ? (
+        <ChatScreen 
+          socket={socketRef.current!} 
+          roomId={store.currentRoom} 
+          {...store} 
+          userAlias={store.userAlias} 
+          onSendMessage={handleSendMessage} 
+          onHeatMessage={(id) => socketRef.current?.emit("heat_message", { roomId: store.currentRoom, messageId: id })} 
+          onRevealWhisper={store.revealWhisper} 
+          onApproveUser={handleApproveUser} 
+          onRejectUser={(id) => { socketRef.current?.emit("reject_user", { targetSocketId: id }); store.setJoinRequests(p => p.filter(r => r.socketId !== id)); }} 
+          onExileUser={(id) => { socketRef.current?.emit("exile_user", { targetSocketId: id, roomId: store.currentRoom }); store.setRoomUsers(p => p.filter(u => u.socketId !== id)); }} 
+          onNuke={() => socketRef.current?.emit("nuke_all", store.currentRoom)} 
+          onExit={handleExitRoom} 
+          onTimerExpired={() => {}} 
+          onTyping={() => socketRef.current?.emit("typing", { roomId: store.currentRoom })} 
+        />
+      ) : (
+        <>
+          {store.view === "radar" && <RadarScreen socket={socketRef.current!} rooms={store.rooms} setRooms={store.setRooms} onJoinRoom={(id) => { socketRef.current?.emit("request_join", { roomId: id, userAlias: store.userAlias || "Shadow" }); store.setCurrentRoom(id); store.setView("waiting"); updateRoute("waiting", id); }} onCreateRoom={() => { store.setView("create"); updateRoute("create"); }} />}
+          {store.view === "create" && (
+            <CreateRoomScreen 
+              socket={socketRef.current!} 
+              onBack={() => { store.setView("radar"); updateRoute("radar"); }} 
+              onCreated={(id, name, exp) => { 
+                store.setCurrentRoom(id); store.setRoomName(name); store.setIsAdmin(true); store.setTimerEnd(Number(exp)); store.setView("chat"); 
+                updateRoute("chat", id); 
+                saveSession({ roomId: id, roomName: name, isAdmin: true, timerEnd: Number(exp) }); 
+              }} 
+              userAlias={store.userAlias} // 🔥 Passing prop to child
+            />
+          )}
+          {store.view === "waiting" && <WaitingScreen onBack={handleReset} />}
+        </>
+      )}
+    </div>
+  );
+}
+
+function saveSession(data: any) { try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(data)); } catch {} }
+function loadSession(): any {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed.timerEnd > Date.now() ? parsed : null;
+  } catch { return null; }
+}
