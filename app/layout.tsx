@@ -9,11 +9,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  // 🔥 Branding updated to Ghost-Radar
+  //  Branding updated to Ghost-Radar
   title: 'Ghost-Radar | Local Anonymous Stealth Chat',
   description: 'Connect with people nearby in Tech Parks, Colleges, or Concerts anonymously. No logs, no traces, ephemeral neural signals only.',
   
-  // 🔥 Targeted Keywords for College, Office & Events
+  //  Targeted Keywords for College, Office & Events
   keywords: [
     'local anonymous chat', 
     'college gossip app', 
