@@ -24,12 +24,12 @@ export function RadarScreen({ socket, rooms, setRooms, onJoinRoom, onCreateRoom 
   const [scanning, setScanning] = useState(true);
   const [geoError, setGeoError] = useState<string | null>(null);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [scanRange, setScanRange] = useState<number>(500); // 🔥 Default Range set ki
+  const [scanRange, setScanRange] = useState<number>(500);
 
   const scanRooms = useCallback(() => {
     if (!coords) return;
     setScanning(true);
-    // 🔥 Backend ko selected scanRange bhej rahe hain
+    //  Backend ko selected scanRange bhej rahe hain
     socket.emit("get_nearby_rooms", { 
       userLat: coords.lat, 
       userLng: coords.lng,
