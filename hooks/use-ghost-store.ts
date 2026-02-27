@@ -19,35 +19,7 @@ export function useGhostStore() {
   const [terminated, setTerminated] = useState(false);
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const addMessage = useCallback((msg: Omit<ChatMessage, "id" | "heat" | "revealed" | "timestamp">) => {
-    setMessages((prev) => [
-      ...prev,
-      {
-        ...msg,
-        id: Math.random().toString(36).substring(2, 9),
-        heat: 0,
-        revealed: false,
-        timestamp: Date.now(),
-      },
-    ]);
-  }, []);
-
-  const heatMessage = useCallback((messageId: string) => {
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === messageId ? { ...m, heat: m.heat + 1 } : m
-      )
-    );
-  }, []);
-
-  const revealWhisper = useCallback((messageId: string) => {
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.id === messageId ? { ...m, revealed: true } : m
-      )
-    );
-  }, []);
-
+  // 🔥 Helper to update typing state
   const showTypingPulse = useCallback(() => {
     setTypingPulse(true);
     if (typingTimeout.current) clearTimeout(typingTimeout.current);
@@ -62,6 +34,15 @@ export function useGhostStore() {
     setRoomUsers([]);
     setTimerEnd(null);
     setRoomName("");
+    setTypingPulse(false);
+  }, []);
+
+  const revealWhisper = useCallback((messageId: string) => {
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === messageId ? { ...m, revealed: true } : m
+      )
+    );
   }, []);
 
   return {
@@ -72,13 +53,14 @@ export function useGhostStore() {
     messages, setMessages,
     joinRequests, setJoinRequests,
     roomUsers, setRoomUsers,
-    typingPulse, showTypingPulse,
+    typingPulse, setTypingPulse, 
+    showTypingPulse,
     roomName, setRoomName,
     userAlias, setUserAlias,
     timerEnd, setTimerEnd,
     nukeFlash, setNukeFlash,
     terminated, setTerminated,
-    addMessage, heatMessage, revealWhisper,
+    revealWhisper,
     resetRoom,
   };
 }

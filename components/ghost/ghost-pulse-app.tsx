@@ -12,40 +12,46 @@ import { ChatScreen } from "./chat-screen";
 import { BannedScreen } from "./banned-screen";
 import { NukeOverlay } from "./NukeOverlay";
 import { EntryScreen } from "./entry-screen"; 
+import { LandingPage } from "./landing-page"; 
 import type { Socket } from "socket.io-client";
 
-const SESSION_KEY = "ghost-pulse-session";
-const IDENTITY_KEY = "ghost_identity";
+const SESSION_KEY = process.env.NEXT_PUBLIC_SESSION_KEY || "ghost-pulse-session";
+const IDENTITY_KEY = process.env.NEXT_PUBLIC_IDENTITY_KEY || "ghost-pulse-identity";
 const GLOBAL_SALT = process.env.NEXT_PUBLIC_GLOBAL_SALT || "ghost_v1_neural_salt_99";
-const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const ONE_WEEK_MS = Number(process.env.NEXT_PUBLIC_IDENTITY_MS) || 604800000;
 
 export function GhostPulseApp() {
   const store = useGhostStore();
   const socketRef = useRef<Socket | null>(null);
   const [connected, setConnected] = useState(false);
   const [isIdentified, setIsIdentified] = useState(false); 
+  const [showLanding, setShowLanding] = useState(true); 
+  const [isChecking, setIsChecking] = useState(true);
 
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
 
+  
   const roomSecret = useMemo(() => {
     if (!store.currentRoom) return "";
-    return CryptoJS.SHA256(store.currentRoom + GLOBAL_SALT).toString();
+    const cleanId = store.currentRoom.replace("room:", "");
+    return CryptoJS.SHA256(cleanId + GLOBAL_SALT).toString();
   }, [store.currentRoom]);
 
   const updateRoute = useCallback((view: string, roomId?: string) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("v", view);
-    if (roomId) params.set("r", roomId);
+    if (roomId) params.set("r", roomId.replace("room:", ""));
     else params.delete("r");
     router.replace(`${pathname}?${params.toString()}`);
   }, [searchParams, router, pathname]);
 
   const handleReset = useCallback(() => {
     if (store.currentRoom) {
-      localStorage.removeItem(`cache_${store.currentRoom}`);
-      sessionStorage.removeItem(`cache_${store.currentRoom}`);
+      const cleanId = store.currentRoom.replace("room:", "");
+      localStorage.removeItem(`cache_${cleanId}`);
+      sessionStorage.removeItem(`cache_${cleanId}`);
     }
     store.resetRoom();
     sessionStorage.removeItem(SESSION_KEY);
@@ -70,19 +76,21 @@ export function GhostPulseApp() {
         if (Date.now() - createdAt < ONE_WEEK_MS) {
           store.setUserAlias(alias);
           setIsIdentified(true);
+          setShowLanding(false);
         }
       } catch (e) { localStorage.removeItem(IDENTITY_KEY); }
     }
 
     if (session) {
-      store.setCurrentRoom(session.roomId);
+      const cleanId = session.roomId.replace("room:", "");
+      store.setCurrentRoom(cleanId);
       store.setRoomName(session.roomName);
       store.setIsAdmin(session.isAdmin);
       store.setTimerEnd(session.timerEnd);
       store.setView("chat");
 
-      const secret = CryptoJS.SHA256(session.roomId + GLOBAL_SALT).toString();
-      const cached = sessionStorage.getItem(`cache_${session.roomId}`);
+      const secret = CryptoJS.SHA256(cleanId + GLOBAL_SALT).toString();
+      const cached = sessionStorage.getItem(`cache_${cleanId}`);
       if (cached) {
         try {
           const bytes = CryptoJS.AES.decrypt(cached, secret);
@@ -91,6 +99,8 @@ export function GhostPulseApp() {
         } catch (e) {}
       }
     }
+    
+    setIsChecking(false);
   }, []);
 
   useEffect(() => {
@@ -111,13 +121,18 @@ export function GhostPulseApp() {
     socket.on("disconnect", () => setConnected(false));
 
     socket.on("new_message", (payload: any) => {
-      const currentRoomId = payload.roomId || store.currentRoom; 
+      const currentRoomId = (payload.roomId || store.currentRoom || "").replace("room:", ""); 
       if(!currentRoomId) return;
+      
       const currentSecret = CryptoJS.SHA256(currentRoomId + GLOBAL_SALT).toString();
 
       try {
         const bytes = CryptoJS.AES.decrypt(payload.message, currentSecret);
         const text = bytes.toString(CryptoJS.enc.Utf8);
+        
+        // Agar decryption result empty hai toh logic bypass karein
+        if (!text) return;
+
         const newMessage = { ...payload, message: text };
         
         store.setMessages((prev) => {
@@ -127,16 +142,17 @@ export function GhostPulseApp() {
           sessionStorage.setItem(`cache_${currentRoomId}`, encrypted);
           return updated;
         });
-      } catch (e) { }
+      } catch (e) { console.error("Decryption failure"); }
     });
 
     socket.on("access_granted", ({ roomId, roomName, expiresAt }) => {
-      store.setCurrentRoom(roomId);
+      const cleanId = roomId.replace("room:", "");
+      store.setCurrentRoom(cleanId);
       store.setRoomName(roomName);
       store.setTimerEnd(Number(expiresAt));
       store.setView("chat");
-      updateRoute("chat", roomId);
-      saveSession({ roomId, roomName: roomName || "Signal", isAdmin: false, timerEnd: Number(expiresAt) });
+      updateRoute("chat", cleanId);
+      saveSession({ roomId: cleanId, roomName, isAdmin: false, timerEnd: Number(expiresAt) });
     });
 
     socket.on("room_users_update", (users) => store.setRoomUsers(users));
@@ -147,16 +163,17 @@ export function GhostPulseApp() {
     socket.on("GLOBAL_NUKE", () => store.setNukeFlash(true));
     socket.on("ROOM_VANISHED", handleReset);
     socket.on("exiled", handleReset);
+    socket.on("display_pulse_dot", () => store.showTypingPulse());
 
     return () => {
       socket.off("connect");
       socket.off("access_granted");
-      socket.off("join_request");
       socket.off("room_users_update"); 
       socket.off("new_message");
       socket.off("GLOBAL_NUKE");
       socket.off("ROOM_VANISHED");
       socket.off("exiled");
+      socket.off("display_pulse_dot");
     };
   }, [handleReset, updateRoute, store, roomSecret]);
 
@@ -177,14 +194,24 @@ export function GhostPulseApp() {
     store.setJoinRequests((prev) => prev.filter((r) => r.socketId !== socketId));
   }, [store.currentRoom]);
 
-  if (!isIdentified) return <EntryScreen onIdentify={(name) => {
-    const fullAlias = `${name}#${Math.random().toString(16).substring(2, 6)}`;
-    localStorage.setItem(IDENTITY_KEY, JSON.stringify({ alias: fullAlias, createdAt: Date.now() }));
-    store.setUserAlias(fullAlias);
-    setIsIdentified(true);
-  }} />;
+  if (isChecking) return <div className="min-h-screen bg-ghost-deep" />;
 
-  if (!connected) return <div className="min-h-screen flex items-center justify-center font-mono text-ghost-green animate-pulse uppercase">Syncing Pulse...</div>;
+  if (showLanding && !isIdentified) {
+    return <LandingPage onEnter={() => setShowLanding(false)} />;
+  }
+
+  if (!isIdentified) {
+    return <EntryScreen onIdentify={(name) => {
+      const fullAlias = `${name}#${Math.random().toString(16).substring(2, 6)}`;
+      localStorage.setItem(IDENTITY_KEY, JSON.stringify({ alias: fullAlias, createdAt: Date.now() }));
+      store.setUserAlias(fullAlias);
+      setIsIdentified(true);
+      store.setView("radar");
+      updateRoute("radar");
+    }} />;
+  }
+
+  if (!connected) return <div className="min-h-screen flex items-center justify-center font-mono text-ghost-green animate-pulse uppercase text-xs tracking-[0.3em]">Syncing Neural Pulse...</div>;
 
   return (
     <div className="h-[100dvh] overflow-hidden">
@@ -214,11 +241,12 @@ export function GhostPulseApp() {
               socket={socketRef.current!} 
               onBack={() => { store.setView("radar"); updateRoute("radar"); }} 
               onCreated={(id, name, exp) => { 
-                store.setCurrentRoom(id); store.setRoomName(name); store.setIsAdmin(true); store.setTimerEnd(Number(exp)); store.setView("chat"); 
-                updateRoute("chat", id); 
-                saveSession({ roomId: id, roomName: name, isAdmin: true, timerEnd: Number(exp) }); 
+                const cleanId = id.replace("room:", "");
+                store.setCurrentRoom(cleanId); store.setRoomName(name); store.setIsAdmin(true); store.setTimerEnd(Number(exp)); store.setView("chat"); 
+                updateRoute("chat", cleanId); 
+                saveSession({ roomId: cleanId, roomName: name, isAdmin: true, timerEnd: Number(exp) }); 
               }} 
-              userAlias={store.userAlias} // 🔥 Passing prop to child
+              userAlias={store.userAlias} 
             />
           )}
           {store.view === "waiting" && <WaitingScreen onBack={handleReset} />}

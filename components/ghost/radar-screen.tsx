@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useCallback, useState } from "react";
-import { Radio, Plus, AlertTriangle, User } from "lucide-react";
+import { Radio, Plus, AlertTriangle, User, MapPin } from "lucide-react"; // 🔥 MapPin add kiya
 import { RoomCard } from "./room-card";
 import { RadarBackground } from "./radar-background";
 import { useGhostStore } from "@/hooks/use-ghost-store";
@@ -16,17 +16,26 @@ interface RadarScreenProps {
   onCreateRoom: () => void;
 }
 
+// 🔥 Range Filter Options define kiye
+const SCAN_RANGES = [500, 1000, 2000, 3000];
+
 export function RadarScreen({ socket, rooms, setRooms, onJoinRoom, onCreateRoom }: RadarScreenProps) {
   const store = useGhostStore();
   const [scanning, setScanning] = useState(true);
   const [geoError, setGeoError] = useState<string | null>(null);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [scanRange, setScanRange] = useState<number>(500); // 🔥 Default Range set ki
 
   const scanRooms = useCallback(() => {
     if (!coords) return;
     setScanning(true);
-    socket.emit("get_nearby_rooms", { userLat: coords.lat, userLng: coords.lng });
-  }, [socket, coords]);
+    // 🔥 Backend ko selected scanRange bhej rahe hain
+    socket.emit("get_nearby_rooms", { 
+      userLat: coords.lat, 
+      userLng: coords.lng,
+      scanRange: scanRange 
+    });
+  }, [socket, coords, scanRange]);
 
   useEffect(() => {
     if (!navigator.geolocation) {
@@ -65,32 +74,56 @@ export function RadarScreen({ socket, rooms, setRooms, onJoinRoom, onCreateRoom 
   }, [socket, setRooms]);
 
   return (
-    <div className="relative min-h-screen flex flex-col">
+    <div className="relative min-h-screen flex flex-col bg-[#0D0D0D]">
       <RadarBackground />
 
-      <header className="relative z-10 flex items-center justify-between px-4 py-4 border-b border-border bg-background/20 backdrop-blur-md">
-        <div className="flex items-center gap-2">
-          <Radio className="w-4 h-4 text-ghost-green animate-blink-green" />
-          <h1 className="text-sm font-mono text-ghost-green tracking-widest uppercase">
-            Ghost Radar
-          </h1>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-2 py-1 rounded border border-ghost-green/20 bg-ghost-green/5">
-            <User className="w-3 h-3 text-ghost-green/60" />
-            <span className="text-[10px] font-mono text-ghost-green truncate max-w-[80px]">
-              {store.userAlias || "UNIDENTIFIED"}
-            </span>
+      <header className="relative z-10 flex flex-col border-b border-border bg-background/20 backdrop-blur-md">
+        <div className="flex items-center justify-between px-4 py-4">
+          <div className="flex items-center gap-2">
+            <Radio className="w-4 h-4 text-ghost-green animate-blink-green" />
+            <h1 className="text-sm font-mono text-ghost-green tracking-widest uppercase">
+              Ghost Radar
+            </h1>
           </div>
 
-          <button
-            onClick={onCreateRoom}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-ghost-green/30 text-ghost-green text-xs font-mono hover:bg-ghost-green/10 transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">New Signal</span>
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 px-2 py-1 rounded border border-ghost-green/20 bg-ghost-green/5">
+              <User className="w-3 h-3 text-ghost-green/60" />
+              <span className="text-[10px] font-mono text-ghost-green truncate max-w-[80px]">
+                {store.userAlias || "UNIDENTIFIED"}
+              </span>
+            </div>
+            <button
+              onClick={onCreateRoom}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-ghost-green/30 text-ghost-green text-xs font-mono hover:bg-ghost-green/10 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">New Signal</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 🔥 Scan Range Selector UI */}
+        <div className="flex items-center justify-between px-4 pb-3 gap-2">
+          <div className="flex items-center gap-1.5 text-muted-foreground/60">
+            <MapPin className="w-3 h-3" />
+            <span className="text-[9px] font-mono uppercase">Radius:</span>
+          </div>
+          <div className="flex gap-1.5">
+            {SCAN_RANGES.map((r) => (
+              <button
+                key={r}
+                onClick={() => setScanRange(r)}
+                className={`px-2 py-0.5 rounded text-[9px] font-mono border transition-all ${
+                  scanRange === r 
+                    ? "bg-ghost-green/20 border-ghost-green text-ghost-green" 
+                    : "bg-transparent border-border text-muted-foreground hover:border-ghost-green/30"
+                }`}
+              >
+                {r >= 1000 ? `${r/1000}km` : `${r}m`}
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
@@ -114,8 +147,8 @@ export function RadarScreen({ socket, rooms, setRooms, onJoinRoom, onCreateRoom 
                 />
               ))}
             </div>
-            <p className="text-xs font-mono text-muted-foreground tracking-wider uppercase">
-              Scanning...
+            <p className="text-xs font-mono text-muted-foreground tracking-wider uppercase animate-pulse">
+              Scanning {scanRange}m perimeter...
             </p>
           </div>
         )}
@@ -123,11 +156,19 @@ export function RadarScreen({ socket, rooms, setRooms, onJoinRoom, onCreateRoom 
         {rooms.length > 0 && (
           <div className="flex flex-col gap-3">
             <p className="text-[10px] font-mono text-muted-foreground tracking-wider uppercase px-1">
-              {rooms.length} Signal{rooms.length > 1 ? "s" : ""} active
+              {rooms.length} Signal{rooms.length > 1 ? "s" : ""} found in {scanRange}m
             </p>
             {rooms.map((room) => (
               <RoomCard key={room.id} room={room} onJoin={onJoinRoom} />
             ))}
+          </div>
+        )}
+
+        {!scanning && rooms.length === 0 && (
+          <div className="text-center py-24">
+            <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-[0.2em] opacity-40">
+              No signals found in {scanRange}m.
+            </p>
           </div>
         )}
       </main>
