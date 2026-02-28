@@ -32,7 +32,7 @@ export function CreateRoomScreen({ socket, onBack, onCreated, userAlias }: Creat
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, { 
           enableHighAccuracy: true,
-          timeout: 5000 
+          timeout: 10000 
         });
       });
 
@@ -88,7 +88,7 @@ export function CreateRoomScreen({ socket, onBack, onCreated, userAlias }: Creat
             <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter codename..." className="w-full px-3 py-2.5 rounded-md bg-ghost-surface border border-border text-foreground font-mono text-sm focus:border-ghost-green/50 outline-none" />
           </div>
 
-          {/* 🔥 Range Selector */}
+          {/*  Range Selector */}
           <div className="flex flex-col gap-2">
             <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider flex justify-between items-center">
               <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> Visibility Range</span>
