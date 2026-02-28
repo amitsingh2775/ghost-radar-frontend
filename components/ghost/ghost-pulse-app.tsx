@@ -32,7 +32,6 @@ export function GhostPulseApp() {
   const router = useRouter();
   const pathname = usePathname();
 
-  
   const roomSecret = useMemo(() => {
     if (!store.currentRoom) return "";
     const cleanId = store.currentRoom.replace("room:", "");
@@ -120,6 +119,14 @@ export function GhostPulseApp() {
 
     socket.on("disconnect", () => setConnected(false));
 
+    // 🔥 Anti-Screenshot / Blacklist Logic
+    socket.on("connect_error", (err) => {
+      if (err.message === "BANNED") {
+        store.setView("banned");
+        updateRoute("banned");
+      }
+    });
+
     socket.on("new_message", (payload: any) => {
       const currentRoomId = (payload.roomId || store.currentRoom || "").replace("room:", ""); 
       if(!currentRoomId) return;
@@ -129,8 +136,6 @@ export function GhostPulseApp() {
       try {
         const bytes = CryptoJS.AES.decrypt(payload.message, currentSecret);
         const text = bytes.toString(CryptoJS.enc.Utf8);
-        
-        // Agar decryption result empty hai toh logic bypass karein
         if (!text) return;
 
         const newMessage = { ...payload, message: text };
@@ -167,6 +172,7 @@ export function GhostPulseApp() {
 
     return () => {
       socket.off("connect");
+      socket.off("connect_error");
       socket.off("access_granted");
       socket.off("room_users_update"); 
       socket.off("new_message");
@@ -195,6 +201,9 @@ export function GhostPulseApp() {
   }, [store.currentRoom]);
 
   if (isChecking) return <div className="min-h-screen bg-ghost-deep" />;
+
+  // 🔥 View Control Logic
+  if (store.view === "banned") return <BannedScreen />;
 
   if (showLanding && !isIdentified) {
     return <LandingPage onEnter={() => setShowLanding(false)} />;

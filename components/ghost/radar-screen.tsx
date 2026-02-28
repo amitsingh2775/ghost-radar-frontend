@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useCallback, useState } from "react";
-import { Radio, Plus, AlertTriangle, User, MapPin } from "lucide-react"; // 🔥 MapPin add kiya
+import { Radio, Plus, AlertTriangle, User, MapPin } from "lucide-react";
 import { RoomCard } from "./room-card";
 import { RadarBackground } from "./radar-background";
 import { useGhostStore } from "@/hooks/use-ghost-store";
@@ -16,7 +16,6 @@ interface RadarScreenProps {
   onCreateRoom: () => void;
 }
 
-// 🔥 Range Filter Options define kiye
 const SCAN_RANGES = [500, 1000, 2000, 3000];
 
 export function RadarScreen({ socket, rooms, setRooms, onJoinRoom, onCreateRoom }: RadarScreenProps) {
@@ -26,17 +25,18 @@ export function RadarScreen({ socket, rooms, setRooms, onJoinRoom, onCreateRoom 
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [scanRange, setScanRange] = useState<number>(500);
 
+  // 🔥 Fix: Memoized scan function jo backend ko current range bhejti hai
   const scanRooms = useCallback(() => {
     if (!coords) return;
     setScanning(true);
-    //  Backend ko selected scanRange bhej rahe hain
     socket.emit("get_nearby_rooms", { 
       userLat: coords.lat, 
       userLng: coords.lng,
-      scanRange: scanRange 
+      scanRange: scanRange // Ab ye updated state pick karega
     });
   }, [socket, coords, scanRange]);
 
+  // Initial Geolocation Fetch
   useEffect(() => {
     if (!navigator.geolocation) {
       setGeoError("Geolocation not supported");
@@ -57,12 +57,14 @@ export function RadarScreen({ socket, rooms, setRooms, onJoinRoom, onCreateRoom 
     );
   }, []);
 
+  // 🔥 Fix: Range change hote hi turant re-scan trigger karein
   useEffect(() => {
     if (!coords) return;
-    scanRooms();
-    const interval = setInterval(scanRooms, 5000);
+    scanRooms(); // Manual click par turant update
+    
+    const interval = setInterval(scanRooms, 5000); // Background auto-refresh
     return () => clearInterval(interval);
-  }, [coords, scanRooms]);
+  }, [coords, scanRooms, scanRange]); // scanRange dependency add ki hai
 
   useEffect(() => {
     const handleFeed = (data: Room[]) => {
@@ -113,10 +115,13 @@ export function RadarScreen({ socket, rooms, setRooms, onJoinRoom, onCreateRoom 
             {SCAN_RANGES.map((r) => (
               <button
                 key={r}
-                onClick={() => setScanRange(r)}
+                onClick={() => {
+                  setScanRange(r);
+                  setScanning(true); // Visual feedback
+                }}
                 className={`px-2 py-0.5 rounded text-[9px] font-mono border transition-all ${
                   scanRange === r 
-                    ? "bg-ghost-green/20 border-ghost-green text-ghost-green" 
+                    ? "bg-ghost-green/20 border-ghost-green text-ghost-green shadow-[0_0_10px_rgba(34,197,94,0.2)]" 
                     : "bg-transparent border-border text-muted-foreground hover:border-ghost-green/30"
                 }`}
               >
@@ -135,7 +140,7 @@ export function RadarScreen({ socket, rooms, setRooms, onJoinRoom, onCreateRoom 
           </div>
         )}
 
-        {scanning && rooms.length === 0 && (
+        {scanning && (
           <div className="flex flex-col items-center justify-center py-24 gap-4">
             <div className="relative">
               <div className="w-4 h-4 rounded-full bg-ghost-green animate-blink-green" />
@@ -148,15 +153,15 @@ export function RadarScreen({ socket, rooms, setRooms, onJoinRoom, onCreateRoom 
               ))}
             </div>
             <p className="text-xs font-mono text-muted-foreground tracking-wider uppercase animate-pulse">
-              Scanning {scanRange}m perimeter...
+              Scanning {scanRange >= 1000 ? `${scanRange/1000}km` : `${scanRange}m`} perimeter...
             </p>
           </div>
         )}
 
-        {rooms.length > 0 && (
+        {!scanning && rooms.length > 0 && (
           <div className="flex flex-col gap-3">
             <p className="text-[10px] font-mono text-muted-foreground tracking-wider uppercase px-1">
-              {rooms.length} Signal{rooms.length > 1 ? "s" : ""} found in {scanRange}m
+              {rooms.length} Signal{rooms.length > 1 ? "s" : ""} found
             </p>
             {rooms.map((room) => (
               <RoomCard key={room.id} room={room} onJoin={onJoinRoom} />
@@ -167,7 +172,7 @@ export function RadarScreen({ socket, rooms, setRooms, onJoinRoom, onCreateRoom 
         {!scanning && rooms.length === 0 && (
           <div className="text-center py-24">
             <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-[0.2em] opacity-40">
-              No signals found in {scanRange}m.
+              No signals found in {scanRange >= 1000 ? `${scanRange/1000}km` : `${scanRange}m`}.
             </p>
           </div>
         )}
