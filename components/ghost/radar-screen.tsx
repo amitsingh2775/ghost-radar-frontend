@@ -25,16 +25,32 @@ export function RadarScreen({ socket, rooms, setRooms, onJoinRoom, onCreateRoom 
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [scanRange, setScanRange] = useState<number>(500);
 
-  // 🔥 Fix: Memoized scan function jo backend ko current range bhejti hai
-  const scanRooms = useCallback(() => {
-    if (!coords) return;
-    setScanning(true);
-    socket.emit("get_nearby_rooms", { 
-      userLat: coords.lat, 
-      userLng: coords.lng,
-      scanRange: scanRange // Ab ye updated state pick karega
-    });
-  }, [socket, coords, scanRange]);
+ 
+const scanRooms = useCallback(() => {
+if (!coords) {
+       console.warn("[FRONTEND] Scan blocked: Coords not ready.");
+       return;
+    }
+setScanning(true);
+    
+  
+    
+ socket.emit("get_nearby_rooms", { 
+ userLat: coords.lat, 
+ userLng: coords.lng,
+ scanRange: scanRange 
+}); }, [socket, coords, scanRange]);
+
+useEffect(() => {
+ const handleFeed = (data: Room[]) => {
+    
+      
+setRooms(data);
+ setScanning(false);
+ };
+ socket.on("radar_feed", handleFeed);
+ return () => { socket.off("radar_feed", handleFeed); };
+ }, [socket, setRooms]);
 
   // Initial Geolocation Fetch
   useEffect(() => {
@@ -57,15 +73,14 @@ export function RadarScreen({ socket, rooms, setRooms, onJoinRoom, onCreateRoom 
     );
   }, []);
 
-  // 🔥 Fix: Range change hote hi turant re-scan trigger karein
+  
   useEffect(() => {
     if (!coords) return;
     scanRooms(); // Manual click par turant update
     
     const interval = setInterval(scanRooms, 5000); // Background auto-refresh
     return () => clearInterval(interval);
-  }, [coords, scanRooms, scanRange]); // scanRange dependency add ki hai
-
+  }, [coords, scanRooms, scanRange]); 
   useEffect(() => {
     const handleFeed = (data: Room[]) => {
       setRooms(data);
