@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import axios from "axios";
 import { ArrowLeft, Radio, Loader2, Clock, Edit3, MapPin } from "lucide-react";
 import type { Socket } from "socket.io-client";
 
@@ -12,12 +13,12 @@ interface CreateRoomScreenProps {
 }
 
 const PRESETS = [15, 30, 60];
-const RANGE_PRESETS = [500, 1000, 2000, 3000]; //  Range Options in Meters
+const RANGE_PRESETS = [500, 1000, 2000, 3000];
 
 export function CreateRoomScreen({ socket, onBack, onCreated, userAlias }: CreateRoomScreenProps) {
   const [name, setName] = useState("");
   const [duration, setDuration] = useState<number>(30);
-  const [range, setRange] = useState<number>(500); // Default 500m
+  const [range, setRange] = useState<number>(500);
   const [isCustom, setIsCustom] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,22 +37,18 @@ export function CreateRoomScreen({ socket, onBack, onCreated, userAlias }: Creat
         });
       });
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/create`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          adminSocketId: socket.id,
-          name: name.trim(),
-          time: Number(duration),
-          range: Number(range), 
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        }),
+      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/create`, {
+        adminSocketId: socket.id,
+        name: name.trim(),
+        time: Number(duration),
+        range: Number(range), 
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      }, {
+        headers: { "Content-Type": "application/json" }
       });
 
-      if (!res.ok) throw new Error();
-
-      const data = await res.json();
+      const data = response.data;
       
       if (data.roomId) {
         socket.emit("admin_join_room", { 
@@ -60,8 +57,9 @@ export function CreateRoomScreen({ socket, onBack, onCreated, userAlias }: Creat
         });
         onCreated(data.roomId, name.trim(), data.expiresAt);
       }
-    } catch (err) {
-      setError("Failed to broadcast. Check GPS/Network.");
+    } catch (err: any) {
+      const msg = err.response?.data?.message || "Failed to broadcast. Check GPS/Network.";
+      setError(msg);
       setCreating(false);
     }
   }, [name, creating, socket, onCreated, duration, range, userAlias]);
@@ -82,13 +80,11 @@ export function CreateRoomScreen({ socket, onBack, onCreated, userAlias }: Creat
         </div>
 
         <div className="w-full max-w-xs flex flex-col gap-6">
-          {/* Name Input */}
           <div className="flex flex-col gap-2">
             <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider text-left">Signal Codename</label>
             <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter codename..." className="w-full px-3 py-2.5 rounded-md bg-ghost-surface border border-border text-foreground font-mono text-sm focus:border-ghost-green/50 outline-none" />
           </div>
 
-          {/*  Range Selector */}
           <div className="flex flex-col gap-2">
             <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider flex justify-between items-center">
               <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> Visibility Range</span>
@@ -96,18 +92,13 @@ export function CreateRoomScreen({ socket, onBack, onCreated, userAlias }: Creat
             </label>
             <div className="grid grid-cols-4 gap-2">
               {RANGE_PRESETS.map((r) => (
-                <button 
-                  key={r} 
-                  onClick={() => setRange(r)} 
-                  className={`py-1.5 rounded border font-mono text-[9px] transition-all ${range === r ? "bg-ghost-green/10 border-ghost-green text-ghost-green" : "bg-ghost-surface border-border text-muted-foreground hover:border-ghost-green/30"}`}
-                >
+                <button key={r} onClick={() => setRange(r)} className={`py-1.5 rounded border font-mono text-[9px] transition-all ${range === r ? "bg-ghost-green/10 border-ghost-green text-ghost-green" : "bg-ghost-surface border-border text-muted-foreground hover:border-ghost-green/30"}`}>
                   {r >= 1000 ? `${r/1000}km` : `${r}m`}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Expiry Selector */}
           <div className="flex flex-col gap-2">
             <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider flex items-center gap-1.5"><Clock className="w-3 h-3" /> Auto-Destruct</label>
             <div className="grid grid-cols-4 gap-2">
