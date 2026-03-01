@@ -9,28 +9,23 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  //  Branding updated to Ghost-Radar
+  // MetadataBase added for production domain
+  metadataBase: new URL('https://ghostradar.in'),
+  alternates: {
+    canonical: '/',
+  },
+  
   title: 'Ghost-Radar | Local Anonymous Stealth Chat',
   description: 'Connect with people nearby in Tech Parks, Colleges, or Concerts anonymously. No logs, no traces, ephemeral neural signals only.',
   
-  //  Targeted Keywords for College, Office & Events
   keywords: [
- 
-  'anonymous chat room', 
-  'private messaging app', 
-  'self-destructing chat', 
-  'nearby strangers chat', 
-  'secret messaging platform', 
-  'encrypted anonymous talk', 
-  'burn after reading chat', 
-  'no login chat app', 
-  'location based chat rooms', 
-  'proximity chat', 
-  'anonymous community platform',
-  'ghost messaging',
-  'secure private chat',
-  'disposable chat room'
-],
+    'anonymous chat room', 'private messaging app', 'self-destructing chat', 
+    'nearby strangers chat', 'secret messaging platform', 'encrypted anonymous talk', 
+    'burn after reading chat', 'no login chat app', 'location based chat rooms', 
+    'proximity chat', 'anonymous community platform', 'ghost messaging', 
+    'secure private chat', 'disposable chat room', 'local gossip app', 
+    'office community chat', 'stealth communication'
+  ],
   authors: [{ name: 'Amit Kumar' }],
   
   openGraph: {
