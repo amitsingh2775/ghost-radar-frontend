@@ -9,28 +9,34 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  // MetadataBase added for production domain
   metadataBase: new URL('https://ghostradar.in'),
   alternates: {
     canonical: '/',
   },
   
-  title: 'Ghost-Radar | Local Anonymous Stealth Chat',
-  description: 'Connect with people nearby in Tech Parks, Colleges, or Concerts anonymously. No logs, no traces, ephemeral neural signals only.',
+  // Title updated with Range and Security focus
+  title: 'Ghost-Radar | Secure E2EE Local Anonymous Chat (500m-3km)',
+  description: 'Ultra-secure, End-to-End Encrypted anonymous chat. Connect with people in a 500m to 3km radius. No logs, no traces, just ephemeral local signals.',
   
   keywords: [
-    'anonymous chat room', 'private messaging app', 'self-destructing chat', 
-    'nearby strangers chat', 'secret messaging platform', 'encrypted anonymous talk', 
-    'burn after reading chat', 'no login chat app', 'location based chat rooms', 
-    'proximity chat', 'anonymous community platform', 'ghost messaging', 
-    'secure private chat', 'disposable chat room', 'local gossip app', 
-    'office community chat', 'stealth communication'
+    // Distance & Location Based
+    '500m radius chat', '1km nearby chat', '3km range local talk', 'location based anonymous chat',
+    'proximity chat rooms', 'hyperlocal stealth communication',
+    
+    // Security & Encryption
+    'E2EE anonymous chat', 'end-to-end encrypted messaging', 'secure stealth channel', 
+    'zero log private chat', 'encrypted local gossip', 'private communication channel',
+    
+    // Core Niche
+    'anonymous chat room', 'self-destructing chat', 'nearby strangers chat', 
+    'secret messaging platform', 'burn after reading chat', 'no login chat app', 
+    'ghost messaging', 'stealth communication app'
   ],
   authors: [{ name: 'Amit Kumar' }],
   
   openGraph: {
-    title: 'Ghost-Radar | Hyper-Local Neural Signals',
-    description: 'Talk to nearby peers at colleges, tech hubs, or festivals. Anonymous and auto-destructing messages.',
+    title: 'Ghost-Radar | Encrypted Local Neural Signals (Range: 3KM)',
+    description: 'Secure E2EE communication within 500m to 3km. Anonymous talk for colleges and tech parks with no traces left behind.',
     url: 'https://ghostradar.in',
     siteName: 'Ghost-Radar',
     images: [
@@ -38,7 +44,7 @@ export const metadata: Metadata = {
         url: '/og-image.png', 
         width: 1200,
         height: 630,
-        alt: 'Ghost-Radar Stealth Interface',
+        alt: 'Ghost-Radar E2EE Stealth Interface',
       },
     ],
     locale: 'en_US',
@@ -47,8 +53,8 @@ export const metadata: Metadata = {
 
   twitter: {
     card: 'summary_large_image',
-    title: 'Ghost-Radar | Anonymous Local Gossip & Networking',
-    description: 'The ultimate stealth communication layer for your current location.',
+    title: 'Ghost-Radar | Secure 3KM Range Anonymous Networking',
+    description: 'The ultimate E2EE stealth communication layer for your local vicinity.',
     images: ['/og-image.png'],
   },
 
