@@ -1,16 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { Flame, ShieldAlert } from "lucide-react";
+import { Flame, ShieldAlert, Lock } from "lucide-react";
 
-export function ChatBubble({ message, isOwn, onHeat, onReveal }: any) {
+export function ChatBubble({ message, isOwn, onHeat, onReveal, isTargetUser }: any) {
   const [hasHeated, setHasHeated] = useState(false);
+  
   const isHot = message.heat >= 5;
   const isWhisper = message.isWhisper;
-  const hidden = isWhisper && message.isRevealed === false;
+
+  // Logic FIX: hidden tabhi hoga jab whisper ho, aap target ho, aur isRevealed explicitly false ho
+  const hidden = isWhisper && isTargetUser && (message.isRevealed === false || message.isRevealed === undefined);
 
   const handleDoubleClick = () => {
     if (hidden) {
+      // Trigger reveal in parent store/state
       onReveal(message.id);
     }
   };
@@ -29,7 +33,7 @@ export function ChatBubble({ message, isOwn, onHeat, onReveal }: any) {
           <div className={`flex items-center gap-1 px-1 ${isOwn ? "justify-end" : "justify-start"}`}>
             <ShieldAlert className="w-2.5 h-2.5 text-ghost-gold" />
             <span className="text-[8px] font-mono text-ghost-gold uppercase">
-              Targeted Whisper
+              {isOwn ? "Sent Whisper" : "Targeted Whisper"}
             </span>
           </div>
         )}
@@ -42,11 +46,12 @@ export function ChatBubble({ message, isOwn, onHeat, onReveal }: any) {
               ? "bg-ghost-green/10 text-ghost-green border border-ghost-green/20 rounded-tr-none"
               : "bg-ghost-surface text-foreground border border-border rounded-tl-none"
             }
-            ${hidden ? "blur-md opacity-30 bg-ghost-gold/5 border-ghost-gold/20" : ""}
+            ${hidden ? "blur-md opacity-30 bg-ghost-gold/5 border-ghost-gold/20" : "blur-0 opacity-100"}
             ${isHot ? "shadow-[0_0_15px_rgba(255,215,0,0.3)] border-ghost-gold" : ""}
           `}
         >
-          <p className="break-words">
+          <p className="break-words flex items-center gap-2">
+            {hidden && <Lock className="w-3 h-3 text-ghost-gold shrink-0" />}
             {hidden ? "SIGNAL_ENCRYPTED_DOUBLE_TAP" : message.message}
           </p>
         </div>

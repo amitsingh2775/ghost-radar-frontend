@@ -65,6 +65,25 @@ export function GhostPulseApp() {
     handleReset();
   }, [store.currentRoom, handleReset]);
 
+  // 🔥 FIX: Whisper Reveal and Persistence Logic
+  const handleRevealWhisper = useCallback((messageId: string) => {
+    store.setMessages((prev) => {
+      const updated = prev.map((m) => 
+        m.id === messageId ? { ...m, isRevealed: true } : m
+      );
+
+      // Cache ko update karna taaki refresh par data na jaye
+      if (store.currentRoom) {
+        const cleanId = store.currentRoom.replace("room:", "");
+        const currentSecret = CryptoJS.SHA256(cleanId + GLOBAL_SALT).toString();
+        const encrypted = CryptoJS.AES.encrypt(JSON.stringify(updated), currentSecret).toString();
+        sessionStorage.setItem(`cache_${cleanId}`, encrypted);
+      }
+      
+      return updated;
+    });
+  }, [store.currentRoom]);
+
   useEffect(() => {
     const session = loadSession();
     const rawIdentity = localStorage.getItem(IDENTITY_KEY);
@@ -119,7 +138,6 @@ export function GhostPulseApp() {
 
     socket.on("disconnect", () => setConnected(false));
 
-    // 🔥 Anti-Screenshot / Blacklist Logic
     socket.on("connect_error", (err) => {
       if (err.message === "BANNED") {
         store.setView("banned");
@@ -138,7 +156,12 @@ export function GhostPulseApp() {
         const text = bytes.toString(CryptoJS.enc.Utf8);
         if (!text) return;
 
-        const newMessage = { ...payload, message: text };
+        // Message object mein isRevealed flag handle karna
+        const newMessage = { 
+          ...payload, 
+          message: text,
+          isRevealed: payload.isWhisper ? false : true 
+        };
         
         store.setMessages((prev) => {
           if (prev.some(m => m.id === newMessage.id)) return prev;
@@ -202,7 +225,6 @@ export function GhostPulseApp() {
 
   if (isChecking) return <div className="min-h-screen bg-ghost-deep" />;
 
-  // 🔥 View Control Logic
   if (store.view === "banned") return <BannedScreen />;
 
   if (showLanding && !isIdentified) {
@@ -233,7 +255,7 @@ export function GhostPulseApp() {
           userAlias={store.userAlias} 
           onSendMessage={handleSendMessage} 
           onHeatMessage={(id) => socketRef.current?.emit("heat_message", { roomId: store.currentRoom, messageId: id })} 
-          onRevealWhisper={store.revealWhisper} 
+          onRevealWhisper={handleRevealWhisper} // new updated
           onApproveUser={handleApproveUser} 
           onRejectUser={(id) => { socketRef.current?.emit("reject_user", { targetSocketId: id }); store.setJoinRequests(p => p.filter(r => r.socketId !== id)); }} 
           onExileUser={(id) => { socketRef.current?.emit("exile_user", { targetSocketId: id, roomId: store.currentRoom }); store.setRoomUsers(p => p.filter(u => u.socketId !== id)); }} 

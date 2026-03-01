@@ -124,17 +124,30 @@
   }
 }
 
+/* 🔥 Custom Ghost Pulse Utility Classes */
 .gold-glow {
   border-color: rgba(255, 215, 0, 0.5) !important;
   background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), transparent) !important;
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
 }
+
 .scrollbar-hide::-webkit-scrollbar {
     display: none;
 }
+
 .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
 }
+
+/* Mobile Fix: Prevent Pointer Capture Errors */
+.draggable-user-item {
+  touch-action: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Nuke & Destruction Animations */
 @keyframes game-blast {
   0% { opacity: 0; transform: scale(1); filter: brightness(1); }
   10% { opacity: 1; transform: scale(1.1); filter: brightness(20); }
