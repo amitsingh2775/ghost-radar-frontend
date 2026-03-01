@@ -15,22 +15,28 @@ export const metadata: Metadata = {
   
   //  Targeted Keywords for College, Office & Events
   keywords: [
-    'local anonymous chat', 
-    'college gossip app', 
-    'office community chat', 
-    'concert chat', 
-    'nearby employee talk', 
-    'ephemeral messaging', 
-    'ghost-radar', 
-    'stealth communication', 
-    'hyper-local social network'
-  ],
+ 
+  'anonymous chat room', 
+  'private messaging app', 
+  'self-destructing chat', 
+  'nearby strangers chat', 
+  'secret messaging platform', 
+  'encrypted anonymous talk', 
+  'burn after reading chat', 
+  'no login chat app', 
+  'location based chat rooms', 
+  'proximity chat', 
+  'anonymous community platform',
+  'ghost messaging',
+  'secure private chat',
+  'disposable chat room'
+],
   authors: [{ name: 'Amit Kumar' }],
   
   openGraph: {
     title: 'Ghost-Radar | Hyper-Local Neural Signals',
     description: 'Talk to nearby peers at colleges, tech hubs, or festivals. Anonymous and auto-destructing messages.',
-    url: 'ghostradar.isroot.in',
+    url: 'https://ghostradar.in',
     siteName: 'Ghost-Radar',
     images: [
       {
