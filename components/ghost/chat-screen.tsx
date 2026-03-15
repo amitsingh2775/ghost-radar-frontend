@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Shield, Send, Eye, LogOut, Mic, Square, Trash2, Play } from "lucide-react";
+import { Shield, Send, Eye, LogOut, Mic, Square, Trash2, Play, UserCircle2 } from "lucide-react";
 import { ChatBubble } from "./chat-bubble";
 import { CountdownTimer } from "./countdown-timer";
 import { AdminSidebar } from "./admin-sidebar";
@@ -40,8 +40,9 @@ export function ChatScreen({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typingUsers]);
 
+  // Admin Request Toast Logic
   useEffect(() => {
-    if (isAdmin && joinRequests && joinRequests.length > 0) {
+    if (isAdmin && joinRequests?.length > 0) {
       const latest = joinRequests[joinRequests.length - 1];
       setRequestToast(latest);
       const timer = setTimeout(() => setRequestToast(null), 5000);
@@ -57,10 +58,7 @@ export function ChatScreen({
       previewAudioCtxRef.current = null;
     }
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => {
-        track.stop();
-        track.enabled = false;
-      });
+      streamRef.current.getTracks().forEach(track => { track.stop(); track.enabled = false; });
       streamRef.current = null;
     }
   }, []);
@@ -82,34 +80,26 @@ export function ChatScreen({
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } 
       });
-      
       streamRef.current = stream;
       audioChunksRef.current = [];
-
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/mp4';
       const recorder = new MediaRecorder(stream, { mimeType, audioBitsPerSecond: 32000 });
-
       mediaRecorderRef.current = recorder;
       recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) audioChunksRef.current.push(e.data); };
-
       recorder.onstop = () => {
         const blob = new Blob(audioChunksRef.current, { type: mimeType });
-        stream.getTracks().forEach(track => track.stop());
         if (blob.size > 1000) {
           setPendingAudioBlob(blob);
           setVoicePreviewUrl(URL.createObjectURL(blob));
         }
         setRecordingTime(0);
       };
-
       recorder.start();
       setIsRecording(true);
       timerIntervalRef.current = setInterval(() => {
         setRecordingTime((prev) => (prev >= 19 ? (stopRecording(), 20) : prev + 1));
       }, 1000);
-    } catch (err) {
-      console.error("Mic failed:", err);
-    }
+    } catch (err) { console.error("Mic failed:", err); }
   }, [stopRecording, forceCleanup]);
 
   const playMorphedPreview = async () => {
@@ -119,28 +109,21 @@ export function ChatScreen({
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
       if (audioCtx.state === 'suspended') await audioCtx.resume();
       previewAudioCtxRef.current = audioCtx;
-
       const arrayBuffer = await pendingAudioBlob.arrayBuffer();
       const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
       const source = audioCtx.createBufferSource();
       source.buffer = audioBuffer;
-
       if (selectedEffect === "ghost") source.detune.value = -800;
       else if (selectedEffect === "alien") source.detune.value = 1000;
       else if (selectedEffect === "robot") {
         const filter = audioCtx.createBiquadFilter();
-        filter.type = "peaking";
-        filter.frequency.value = 1500;
-        source.connect(filter);
-        filter.connect(audioCtx.destination);
+        filter.type = "peaking"; filter.frequency.value = 1500;
+        source.connect(filter); filter.connect(audioCtx.destination);
       } else source.connect(audioCtx.destination);
-
       if (selectedEffect !== "robot") source.connect(audioCtx.destination);
       source.onended = () => setIsPreviewPlaying(false);
       source.start(0);
-    } catch (err) {
-      setIsPreviewPlaying(false);
-    }
+    } catch (err) { setIsPreviewPlaying(false); }
   };
 
   useEffect(() => {
@@ -159,11 +142,7 @@ export function ChatScreen({
 
   const confirmSendVoice = async () => {
     if (!pendingAudioBlob) return;
-    if (isWhisper && !whisperTarget) {
-        alert("Please select a target first!");
-        return;
-    }
-
+    if (isWhisper && !whisperTarget) { alert("Please select a target first!"); return; }
     try {
       const buffer = await pendingAudioBlob.arrayBuffer();
       socket.emit("send_voice", {
@@ -196,43 +175,46 @@ export function ChatScreen({
   }, [input, isWhisper, whisperTarget, onSendMessage]);
 
   return (
-    <div className="relative h-[100dvh] flex flex-col bg-ghost-deep overflow-hidden font-mono text-xs sm:text-sm">
+    <div className="relative h-[100dvh] flex flex-col bg-ghost-deep overflow-hidden font-mono text-sm">
       
+      {/* ADMIN NOTIFICATION TOAST */}
       {requestToast && isAdmin && (
-        <div className="absolute top-14 left-4 right-4 z-50 animate-in slide-in-from-top-4 duration-300">
-          <div className="glass rounded-lg p-3 flex items-center justify-between border border-ghost-green/40 bg-ghost-surface/95 backdrop-blur-xl shadow-lg">
-             <div className="flex flex-col">
-              <span className="text-[10px] text-ghost-green uppercase tracking-widest">Incoming Request</span>
-              <span className="text-xs font-bold">{requestToast.alias}</span>
+        <div className="fixed top-14 left-4 right-4 z-[100] animate-in slide-in-from-top-4 duration-300">
+          <div className="glass rounded-xl p-3 flex items-center justify-between border border-ghost-green/40 bg-ghost-surface/95 backdrop-blur-xl shadow-2xl">
+             <div className="flex flex-col overflow-hidden mr-2">
+              <span className="text-[10px] text-ghost-green uppercase tracking-widest font-black">Incoming Signal</span>
+              <span className="text-xs font-bold text-white truncate">{requestToast.alias}</span>
             </div>
             <button 
               onClick={() => { onApproveUser(requestToast.socketId); setRequestToast(null); }} 
-              className="px-4 py-1.5 bg-ghost-green text-black text-[10px] font-bold rounded-md active:scale-95 transition-transform"
+              className="px-4 py-2 bg-ghost-green text-black text-[10px] font-black uppercase rounded-lg active:scale-95 transition-transform shrink-0"
             >
-              accept
+              Accept
             </button>
           </div>
         </div>
       )}
 
       {/* HEADER */}
-      <header className="flex items-center justify-between px-3 sm:px-4 py-3 border-b border-border bg-ghost-surface/80 backdrop-blur-sm z-20">
-        <div className="flex-1 overflow-hidden truncate">
-          <span className="text-[10px] text-muted-foreground uppercase">{roomName || "Neural Pulse"}</span>
+      <header className="flex items-center justify-between px-3 sm:px-6 py-3 sm:py-4 border-b border-border bg-ghost-surface/80 backdrop-blur-md z-20 shrink-0">
+        <div className="flex-1 overflow-hidden">
+          <span className="text-[10px] text-muted-foreground uppercase tracking-widest truncate block">
+            {roomName || "Neural Pulse"}
+          </span>
         </div>
-        <div className="absolute left-1/2 -translate-x-1/2 shrink-0">
+        <div className="shrink-0 px-2">
           {timerEnd && <CountdownTimer endTime={timerEnd} onExpired={onNuke} />}
         </div>
         <div className="flex items-center gap-2 flex-1 justify-end">
-          <button onClick={isAdmin ? () => setSidebarOpen(true) : onExit} className="p-2 border border-border rounded-md hover:bg-white/5 transition-all">
-            {isAdmin ? <Shield className="w-4 h-4 text-ghost-green" /> : <LogOut className="w-4 h-4" />}
+          <button onClick={isAdmin ? () => setSidebarOpen(true) : onExit} className="p-2 border border-border rounded-lg hover:bg-white/5 active:bg-white/10 transition-all">
+            {isAdmin ? <Shield className="w-4 h-4 text-ghost-green" /> : <LogOut className="w-4 h-4 text-red-500" />}
           </button>
         </div>
       </header>
 
-      {/* CHAT FEED */}
-      <main className="flex-1 overflow-y-auto overscroll-contain px-3 sm:px-6 py-4 scrollbar-hide">
-        <div className="flex flex-col gap-4 min-h-full">
+      {/* MESSAGES AREA */}
+      <main className="flex-1 overflow-y-auto overscroll-contain px-3 sm:px-8 py-4 scrollbar-hide">
+        <div className="flex flex-col gap-4 min-h-full pb-2">
           {messages.map((msg: any) => (
               <ChatBubble key={msg.id} 
               message={msg} 
@@ -247,78 +229,124 @@ export function ChatScreen({
         </div>
       </main>
 
-      {/* TYPING INDICATOR */}
+      {/* TYPING STATUS */}
       {Object.keys(typingUsers || {}).length > 0 && (
-        <div className="px-6 py-2 animate-pulse flex items-center gap-2">
+        <div className="px-4 py-1.5 animate-pulse flex items-center gap-2 bg-ghost-deep/40 shrink-0">
           <div className="h-1.5 w-1.5 rounded-full bg-ghost-green shadow-[0_0_8px_#00ff41]" />
-          <span className="text-[10px] font-mono text-ghost-green/60 uppercase tracking-widest">
+          <span className="text-[9px] font-bold text-ghost-green/70 uppercase tracking-widest">
             {Object.keys(typingUsers).length === 1 
-              ? `${Object.values(typingUsers)[0]} is typing...` 
-              : `${Object.keys(typingUsers).length} messages typing...`}
+              ? `${Object.values(typingUsers)[0]} is transmitting...` 
+              : `${Object.keys(typingUsers).length} signals detected...`}
           </span>
         </div>
       )}
 
-      {/* VOICE PREVIEW */}
+      {/* VOICE PREVIEW MODAL (MOBILE FRIENDLY) */}
       {voicePreviewUrl && (
-        <div className="px-3 py-3 border-t border-border bg-ghost-surface/95 animate-in slide-in-from-bottom-2 z-40 space-y-3 pb-safe">
-          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-1">
-            <span className="text-[10px] text-ghost-green font-bold uppercase whitespace-nowrap opacity-70">Aura:</span>
+        <div className="px-3 py-3 border-t border-border bg-ghost-surface/95 animate-in slide-in-from-bottom-full z-40 space-y-3 shadow-2xl shrink-0">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+            <span className="text-[9px] text-ghost-green font-black uppercase whitespace-nowrap opacity-60">Aura:</span>
             {VOICE_EFFECTS.map((eff) => (
-              <button key={eff.id} onClick={() => setSelectedEffect(eff.id)} className={`px-3 py-1.5 rounded-full text-[10px] font-bold border transition-all whitespace-nowrap active:scale-95 ${selectedEffect === eff.id ? "bg-ghost-green text-black border-ghost-green shadow-[0_0_10px_rgba(0,255,65,0.3)]" : "border-border text-muted-foreground hover:border-ghost-green/40"}`}>
+              <button key={eff.id} onClick={() => setSelectedEffect(eff.id)} className={`px-3 py-1.5 rounded-full text-[9px] font-bold border transition-all whitespace-nowrap ${selectedEffect === eff.id ? "bg-ghost-green text-black border-ghost-green shadow-lg" : "border-border text-muted-foreground hover:bg-white/5"}`}>
                 {eff.label}
               </button>
             ))}
           </div>
-          <div className="flex items-center gap-3 bg-ghost-deep p-2 rounded-xl border border-ghost-green/20 shadow-2xl">
-            <button onClick={playMorphedPreview} disabled={isPreviewPlaying} className={`p-3 rounded-full transition-all ${isPreviewPlaying ? "bg-ghost-green/10 text-ghost-green/40" : "bg-ghost-green/20 text-ghost-green hover:bg-ghost-green/30"}`}><Play className={`w-5 h-5 ${isPreviewPlaying ? "animate-pulse" : "fill-current"}`} /></button>
-            <div className="flex-1 flex flex-col"><span className="text-[10px] text-ghost-green font-bold uppercase tracking-widest">{isPreviewPlaying ? "Audio Playing..." : `Ready: ${selectedEffect} Aura`}</span></div>
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 bg-ghost-deep p-2 rounded-xl border border-ghost-green/20">
+            <button onClick={playMorphedPreview} disabled={isPreviewPlaying} className={`p-3 rounded-full transition-all ${isPreviewPlaying ? "bg-ghost-green/10 text-ghost-green/40" : "bg-ghost-green/20 text-ghost-green"}`}>
+              <Play className={`w-5 h-5 ${isPreviewPlaying ? "animate-pulse" : "fill-current"}`} />
+            </button>
+            <div className="flex-1 flex flex-col min-w-0">
+              <span className="text-[10px] text-ghost-green font-bold uppercase truncate">{isPreviewPlaying ? "Analyzing..." : `Ready: ${selectedEffect} Aura`}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
               <button onClick={confirmSendVoice} className="p-2.5 bg-ghost-green text-black rounded-lg active:scale-90 shadow-lg"><Send className="w-4 h-4" /></button>
-              <button onClick={cancelVoicePreview} className="p-2.5 bg-red-500/10 text-red-500 border border-red-500/20 rounded-lg active:scale-90"><Trash2 className="w-4 h-4" /></button>
+              <button onClick={cancelVoicePreview} className="p-2.5 bg-red-500/10 text-red-500 rounded-lg active:scale-90"><Trash2 className="w-4 h-4" /></button>
             </div>
           </div>
         </div>
       )}
 
-      {/* INPUT CONTROLS + WHISPER UI */}
-      <div className="px-3 sm:px-6 py-3 border-t border-border bg-ghost-surface/90 backdrop-blur-md z-30 pb-safe">
+      {/* INPUT CONTROL BAR */}
+      <div className="px-2 sm:px-6 py-3 sm:py-4 border-t border-border bg-ghost-surface/90 backdrop-blur-xl z-30 pb-safe shrink-0">
+        
+        {/* WHISPER SELECTOR (HORIZONTALLY SCROLLABLE) */}
         {isWhisper && (
-          <div className="flex flex-wrap gap-2 max-h-28 overflow-y-auto no-scrollbar py-2 mb-2 animate-in fade-in">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-2 mb-2 animate-in fade-in slide-in-from-bottom-2 border-b border-white/5">
+            <div className="flex-shrink-0 flex items-center gap-1 text-ghost-gold px-1">
+              <UserCircle2 className="w-3 h-3" />
+              <span className="text-[9px] font-black uppercase">To:</span>
+            </div>
             {roomUsers.filter((u: RoomUser) => u.alias !== userAlias).map((user: RoomUser) => (
               <button 
                 key={user.socketId} 
                 onClick={() => setWhisperTarget(user.alias)} 
-                className={`px-3 py-1 rounded-md border text-[10px] transition-all ${whisperTarget === user.alias ? "bg-ghost-gold text-black border-ghost-gold shadow-md" : "text-ghost-gold border-ghost-gold/30"}`}
+                className={`px-3 py-1.5 rounded-lg border text-[10px] font-bold transition-all whitespace-nowrap active:scale-95 ${whisperTarget === user.alias ? "bg-ghost-gold text-black border-ghost-gold shadow-lg shadow-ghost-gold/20" : "text-ghost-gold border-ghost-gold/30 bg-ghost-gold/5"}`}
               >
                 {user.alias}
               </button>
             ))}
           </div>
         )}
+        
         <div className="flex items-center gap-2 sm:gap-3">
-          <button onClick={() => { setIsWhisper(!isWhisper); setWhisperTarget(null); }} className={`p-2.5 rounded-md border transition-all shrink-0 ${isWhisper ? "border-ghost-gold text-ghost-gold bg-ghost-gold/5" : "border-border text-muted-foreground"}`}><Eye className="w-5 h-5" /></button>
-          <button ref={micButtonRef} onMouseDown={(e) => { e.preventDefault(); startRecording(); }} onMouseUp={(e) => { e.preventDefault(); stopRecording(); }} onMouseLeave={() => isRecording && stopRecording()} className={`p-2.5 rounded-md border transition-all shrink-0 ${isRecording ? "bg-red-500/20 border-red-500 text-red-500 animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.3)]" : "border-border text-ghost-green hover:bg-ghost-green/10"}`}><Mic className="w-5 h-5" /></button>
+          {/* Eye Icon (Whisper Toggle) */}
+          <button 
+            onClick={() => { setIsWhisper(!isWhisper); setWhisperTarget(null); }} 
+            className={`p-2.5 sm:p-3 rounded-xl border transition-all shrink-0 active:scale-90 ${isWhisper ? "border-ghost-gold text-ghost-gold bg-ghost-gold/10 shadow-[0_0_15px_rgba(255,184,0,0.1)]" : "border-border text-muted-foreground bg-white/5"}`}
+          >
+            <Eye className="w-5 h-5 sm:w-6 sm:h-6" />
+          </button>
+
+          {/* Mic Icon (Hold to Record) */}
+          <button 
+            ref={micButtonRef} 
+            onMouseDown={(e) => { e.preventDefault(); startRecording(); }} 
+            onMouseUp={(e) => { e.preventDefault(); stopRecording(); }} 
+            onMouseLeave={() => isRecording && stopRecording()} 
+            className={`p-2.5 sm:p-3 rounded-xl border transition-all shrink-0 active:scale-95 ${isRecording ? "bg-red-500/20 border-red-500 text-red-500 animate-pulse shadow-[0_0_20px_rgba(239,68,68,0.3)]" : "border-border text-ghost-green bg-white/5"}`}
+          >
+            <Mic className="w-5 h-5 sm:w-6 sm:h-6" />
+          </button>
           
+          {/* Main Chat Input (Dynamic Border & Placeholder) */}
           <input 
             type="text" 
             value={input} 
             onChange={(e) => { setInput(e.target.value); onTyping(); }} 
             onKeyDown={(e) => e.key === "Enter" && handleSend()} 
             disabled={isRecording || !!voicePreviewUrl || (isWhisper && !whisperTarget)} 
-            placeholder={isRecording ? "Recording..." : (isWhisper && !whisperTarget ? "Select a signal target..." : "Write message...")} 
-            
-            className={`flex-1 px-4 py-2.5 rounded-md bg-ghost-deep border outline-none text-base sm:text-xs transition-all placeholder:opacity-50 ${
+            placeholder={isRecording ? "Recording..." : (isWhisper && !whisperTarget ? "Select a target..." : "write messages...")} 
+            className={`flex-1 min-w-0 px-3 sm:px-4 py-2.5 sm:py-3.5 rounded-xl bg-ghost-deep border outline-none text-sm transition-all placeholder:text-[10px] placeholder:uppercase placeholder:tracking-widest ${
               isRecording 
-                ? "border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.2)]" 
-                : "border-border focus:border-ghost-green/40"
+                ? "border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.2)] placeholder:text-red-500/50" 
+                : "border-border focus:border-ghost-green/40 focus:bg-ghost-green/5"
             }`} 
           />
           
-          <button onClick={handleSend} disabled={!input.trim() || (isWhisper && !whisperTarget) || isRecording} className={`p-2.5 rounded-md transition-all shrink-0 ${isWhisper ? "bg-ghost-gold text-black shadow-lg" : "bg-ghost-green text-white"} disabled:opacity-30`}><Send className="w-5 h-5" /></button>
+          {/* Send Signal Button */}
+          <button 
+            onClick={handleSend} 
+            disabled={!input.trim() || (isWhisper && !whisperTarget) || isRecording} 
+            className={`p-2.5 sm:p-3 rounded-xl transition-all shrink-0 active:scale-90 disabled:opacity-20 ${isWhisper ? "bg-ghost-gold text-black shadow-lg" : "bg-ghost-green text-black shadow-lg"}`}
+          >
+            <Send className="w-5 h-5 sm:w-6 sm:h-6" />
+          </button>
         </div>
       </div>
-      {isAdmin && <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} joinRequests={joinRequests} roomUsers={roomUsers} onApprove={onApproveUser} onReject={onRejectUser} onExile={onExileUser} onNuke={onNuke} />}
+
+      {isAdmin && (
+        <AdminSidebar 
+          open={sidebarOpen} 
+          onClose={() => setSidebarOpen(false)} 
+          joinRequests={joinRequests} 
+          roomUsers={roomUsers} 
+          onApprove={onApproveUser} 
+          onReject={onRejectUser} 
+          onExile={onExileUser} 
+          onNuke={onNuke} 
+        />
+      )}
     </div>
   );
 }

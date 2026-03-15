@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useState, useRef } from "react";
 import { Radio, Plus, AlertTriangle, User, MapPin } from "lucide-react";
 import { RoomCard } from "./room-card";
 import { RadarBackground } from "./radar-background";
@@ -25,34 +25,33 @@ export function RadarScreen({ socket, rooms, setRooms, onJoinRoom, onCreateRoom 
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [scanRange, setScanRange] = useState<number>(500);
 
+
+  const scanRooms = useCallback(() => {
+    if (!coords) return;
+    setScanning(true);
+    socket.emit("get_nearby_rooms", { 
+      userLat: coords.lat, 
+      userLng: coords.lng,
+      scanRange: scanRange 
+    });
+  }, [socket, coords, scanRange]);
+
+  //  Single Socket Listener (No duplicates)
+  useEffect(() => {
+    const handleFeed = (data: Room[]) => {
+    
+
+      setRooms(data);
+      setScanning(false);
+    };
+
+    socket.on("radar_feed", handleFeed);
+    return () => {
+      socket.off("radar_feed", handleFeed);
+    };
+  }, [socket, setRooms]);
+
  
-const scanRooms = useCallback(() => {
-if (!coords) {
-       console.warn("[FRONTEND] Scan blocked: Coords not ready.");
-       return;
-    }
-setScanning(true);
-    
-  
-    
- socket.emit("get_nearby_rooms", { 
- userLat: coords.lat, 
- userLng: coords.lng,
- scanRange: scanRange 
-}); }, [socket, coords, scanRange]);
-
-useEffect(() => {
- const handleFeed = (data: Room[]) => {
-    
-      
-setRooms(data);
- setScanning(false);
- };
- socket.on("radar_feed", handleFeed);
- return () => { socket.off("radar_feed", handleFeed); };
- }, [socket, setRooms]);
-
-  // Initial Geolocation Fetch
   useEffect(() => {
     if (!navigator.geolocation) {
       setGeoError("Geolocation not supported");
@@ -73,22 +72,15 @@ setRooms(data);
     );
   }, []);
 
-  
+  //  Auto-Refresh Interval
   useEffect(() => {
     if (!coords) return;
-    scanRooms(); // Manual click par turant update
     
-    const interval = setInterval(scanRooms, 5000); // Background auto-refresh
+    scanRooms(); // Immediate scan when coords or range changes
+
+    const interval = setInterval(scanRooms, 8000); // 8 sec interval for efficiency
     return () => clearInterval(interval);
-  }, [coords, scanRooms, scanRange]); 
-  useEffect(() => {
-    const handleFeed = (data: Room[]) => {
-      setRooms(data);
-      setScanning(false);
-    };
-    socket.on("radar_feed", handleFeed);
-    return () => { socket.off("radar_feed", handleFeed); };
-  }, [socket, setRooms]);
+  }, [coords, scanRange, scanRooms]);
 
   return (
     <div className="relative min-h-screen flex flex-col bg-[#0D0D0D]">
@@ -98,9 +90,7 @@ setRooms(data);
         <div className="flex items-center justify-between px-4 py-4">
           <div className="flex items-center gap-2">
             <Radio className="w-4 h-4 text-ghost-green animate-blink-green" />
-            <h1 className="text-sm font-mono text-ghost-green tracking-widest uppercase">
-              Ghost Radar
-            </h1>
+            <h1 className="text-sm font-mono text-ghost-green tracking-widest uppercase">Ghost Radar</h1>
           </div>
 
           <div className="flex items-center gap-3">
@@ -120,24 +110,20 @@ setRooms(data);
           </div>
         </div>
 
-       
         <div className="flex items-center justify-between px-4 pb-3 gap-2">
           <div className="flex items-center gap-1.5 text-muted-foreground/60">
             <MapPin className="w-3 h-3" />
-            <span className="text-[9px] font-mono uppercase">Distance:</span>
+            <span className="text-[9px] font-mono uppercase">Range:</span>
           </div>
           <div className="flex gap-1.5">
             {SCAN_RANGES.map((r) => (
               <button
                 key={r}
-                onClick={() => {
-                  setScanRange(r);
-                  setScanning(true); // Visual feedback
-                }}
+                onClick={() => setScanRange(r)}
                 className={`px-2 py-0.5 rounded text-[9px] font-mono border transition-all ${
                   scanRange === r 
-                    ? "bg-ghost-green/20 border-ghost-green text-ghost-green shadow-[0_0_10px_rgba(34,197,94,0.2)]" 
-                    : "bg-transparent border-border text-muted-foreground hover:border-ghost-green/30"
+                    ? "bg-ghost-green/20 border-ghost-green text-ghost-green" 
+                    : "border-border text-muted-foreground"
                 }`}
               >
                 {r >= 1000 ? `${r/1000}km` : `${r}m`}
@@ -147,57 +133,38 @@ setRooms(data);
         </div>
       </header>
 
-      <main className="relative z-10 flex-1 px-4 py-6">
+      <main className="relative z-10 flex-1 px-4 py-6 overflow-y-auto">
         {geoError && (
           <div className="flex items-center gap-2 p-3 rounded-md border border-destructive/30 bg-destructive/5 mb-4">
-            <AlertTriangle className="w-4 h-4 text-destructive flex-shrink-0" />
+            <AlertTriangle className="w-4 h-4 text-destructive" />
             <p className="text-xs font-mono text-destructive">{geoError}</p>
           </div>
         )}
 
-        {scanning && (
+        {scanning && rooms.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 gap-4">
-            <div className="relative">
-              <div className="w-4 h-4 rounded-full bg-ghost-green animate-blink-green" />
-              {[0, 1, 2].map((i) => (
-                <div
-                  key={i}
-                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full border border-ghost-green/30 animate-radar-pulse"
-                  style={{ animationDelay: `${i * 0.6}s` }}
-                />
-              ))}
-            </div>
-            <p className="text-xs font-mono text-muted-foreground tracking-wider uppercase animate-pulse">
-              Scanning {scanRange >= 1000 ? `${scanRange/1000}km` : `${scanRange}m`} perimeter...
-            </p>
+             <div className="w-8 h-8 border-2 border-ghost-green/20 border-t-ghost-green rounded-full animate-spin" />
+             <p className="text-[10px] font-mono text-muted-foreground animate-pulse uppercase">Scanning Perimeter...</p>
           </div>
-        )}
-
-        {!scanning && rooms.length > 0 && (
+        ) : (
           <div className="flex flex-col gap-3">
-            <p className="text-[10px] font-mono text-muted-foreground tracking-wider uppercase px-1">
-              {rooms.length} Signal{rooms.length > 1 ? "s" : ""} found
-            </p>
-            {rooms.map((room) => (
-              <RoomCard key={room.id} room={room} onJoin={onJoinRoom} />
-            ))}
-          </div>
-        )}
-
-        {!scanning && rooms.length === 0 && (
-          <div className="text-center py-24">
-            <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-[0.2em] opacity-40">
-              No Room found in {scanRange >= 1000 ? `${scanRange/1000}km` : `${scanRange}m`}.
-            </p>
+            {rooms.length > 0 ? (
+              <>
+                <p className="text-[10px] font-mono text-muted-foreground tracking-wider uppercase px-1">
+                  {rooms.length} Signal{rooms.length > 1 ? "s" : ""} detected
+                </p>
+                {rooms.map((room) => (
+                  <RoomCard key={room.id} room={room} onJoin={() => onJoinRoom(room.id)} />
+                ))}
+              </>
+            ) : (
+              <div className="text-center py-24">
+                <p className="text-[10px] font-mono text-muted-foreground/40 uppercase tracking-widest">Zero Signals Found in {scanRange}m</p>
+              </div>
+            )}
           </div>
         )}
       </main>
-
-      <footer className="relative z-10 px-4 py-3 border-t border-border bg-background/10">
-        <p className="text-[10px] font-mono text-muted-foreground/40 text-center tracking-wider italic">
-          NODE: {coords ? `${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}` : "LOCATING..."}
-        </p>
-      </footer>
     </div>
   );
 }
