@@ -115,16 +115,16 @@ setRooms(data);
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-ghost-green/30 text-ghost-green text-xs font-mono hover:bg-ghost-green/10 transition-colors"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">New Signal</span>
+              <span className="hidden sm:inline">New Room</span>
             </button>
           </div>
         </div>
 
-        {/* 🔥 Scan Range Selector UI */}
+       
         <div className="flex items-center justify-between px-4 pb-3 gap-2">
           <div className="flex items-center gap-1.5 text-muted-foreground/60">
             <MapPin className="w-3 h-3" />
-            <span className="text-[9px] font-mono uppercase">Radius:</span>
+            <span className="text-[9px] font-mono uppercase">Distance:</span>
           </div>
           <div className="flex gap-1.5">
             {SCAN_RANGES.map((r) => (
@@ -187,7 +187,7 @@ setRooms(data);
         {!scanning && rooms.length === 0 && (
           <div className="text-center py-24">
             <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-[0.2em] opacity-40">
-              No signals found in {scanRange >= 1000 ? `${scanRange/1000}km` : `${scanRange}m`}.
+              No Room found in {scanRange >= 1000 ? `${scanRange/1000}km` : `${scanRange}m`}.
             </p>
           </div>
         )}

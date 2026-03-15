@@ -70,7 +70,7 @@ export function CreateRoomScreen({ socket, onBack, onCreated, userAlias }: Creat
         <button onClick={onBack} className="p-1.5 rounded-md hover:bg-ghost-surface transition-colors">
           <ArrowLeft className="w-4 h-4 text-muted-foreground" />
         </button>
-        <h1 className="text-sm font-mono text-ghost-green tracking-widest uppercase">New Signal</h1>
+        <h1 className="text-sm font-mono text-ghost-green tracking-widest uppercase">New Room</h1>
       </header>
 
       <main className="flex-1 flex flex-col items-center justify-center px-6 gap-8 py-10 overflow-y-auto">
@@ -81,8 +81,8 @@ export function CreateRoomScreen({ socket, onBack, onCreated, userAlias }: Creat
 
         <div className="w-full max-w-xs flex flex-col gap-6">
           <div className="flex flex-col gap-2">
-            <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider text-left">Signal Codename</label>
-            <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter codename..." className="w-full px-3 py-2.5 rounded-md bg-ghost-surface border border-border text-foreground font-mono text-sm focus:border-ghost-green/50 outline-none" />
+            <label className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider text-left">Room Name</label>
+            <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter room name..." className="w-full px-3 py-2.5 rounded-md bg-ghost-surface border border-border text-foreground font-mono text-sm focus:border-ghost-green/50 outline-none" />
           </div>
 
           <div className="flex flex-col gap-2">
@@ -113,7 +113,7 @@ export function CreateRoomScreen({ socket, onBack, onCreated, userAlias }: Creat
           {error && <p className="text-[10px] font-mono text-destructive text-center">{error}</p>}
 
           <button onClick={handleCreate} disabled={!name.trim() || creating} className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-md bg-ghost-green text-primary-foreground font-mono text-sm font-bold hover:bg-ghost-green/90 disabled:opacity-30 transition-all shadow-[0_0_20px_rgba(34,197,94,0.2)]">
-            {creating ? <><Loader2 className="w-4 h-4 animate-spin" /><span>Broadcasting...</span></> : <span>Broadcast Signal</span>}
+            {creating ? <><Loader2 className="w-4 h-4 animate-spin" /><span>Creating Room...</span></> : <span>Create Room</span>}
           </button>
         </div>
       </main>

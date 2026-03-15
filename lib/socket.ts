@@ -9,12 +9,12 @@ let socket: Socket | null = null;
 export const getSocket = (): Socket => {
   if (!socket) {
     socket = io(SOCKET_URL, {
-      transports: ["websocket", "polling"],
+      transports: ["websocket"], // Strictly websocket use karein stability ke liye
       autoConnect: true,
       reconnection: true,
-      reconnectionAttempts: 10,
+      reconnectionAttempts: 10, 
       reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
+      timeout: 60000, // 60 seconds timeout
     });
   }
   return socket;

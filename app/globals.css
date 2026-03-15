@@ -62,6 +62,10 @@
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 2px);
   --radius-xl: calc(var(--radius) + 6px);
+  
+  /* Adding Animations to Theme for v4 */
+  --animation-nuke-expand: nuke-expand 0.7s ease-in forwards;
+  --animation-loading-bar: loading-bar 0.8s linear forwards;
 }
 
 @layer base {
@@ -73,7 +77,18 @@
   }
 }
 
-/* Radar pulse animation */
+/* --- Keyframes --- */
+
+@keyframes nuke-expand {
+  0% { transform: scale(0); opacity: 1; }
+  100% { transform: scale(1000); opacity: 1; }
+}
+
+@keyframes loading-bar {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
+
 @keyframes radar-pulse {
   0% { transform: scale(0.3); opacity: 0.8; }
   100% { transform: scale(2.5); opacity: 0; }
@@ -110,55 +125,6 @@
   75% { transform: translate(-1px, -1px); }
 }
 
-.animate-radar-pulse {
-  animation: radar-pulse 2s ease-out infinite;
-}
-
-.animate-blink-green {
-  animation: blink-green 1.5s ease-in-out infinite;
-}
-
-.animate-glitch {
-  animation: glitch 0.3s ease-in-out infinite;
-}
-
-.animate-scan-line {
-  animation: scan-line 3s linear infinite;
-}
-
-.animate-float-up {
-  animation: float-up 0.4s ease-out forwards;
-}
-
-.animate-vibrate {
-  animation: vibrate 0.15s ease-in-out infinite;
-}
-
-/* Glassmorphism */
-.glass {
-  background: rgba(26, 26, 26, 0.6);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(42, 42, 42, 0.8);
-}
-
-/* Whisper blur */
-.whisper-blur {
-  filter: blur(8px);
-  user-select: none;
-  transition: filter 0.3s ease;
-}
-
-.whisper-revealed {
-  filter: blur(0);
-}
-
-/* Gold glow for heated messages */
-.gold-glow {
-  box-shadow: 0 0 12px rgba(255, 215, 0, 0.4), 0 0 24px rgba(255, 215, 0, 0.2);
-  border-color: #FFD700;
-}
-
-/* Nuke flash */
 @keyframes nuke-flash {
   0% { opacity: 0; }
   10% { opacity: 1; }
@@ -166,11 +132,24 @@
   100% { opacity: 0; }
 }
 
-.animate-nuke-flash {
-  animation: nuke-flash 2s ease-in-out forwards;
+/* --- Classes --- */
+
+.animate-nuke-expand { animation: var(--animation-nuke-expand); }
+.animate-loading-bar { animation: var(--animation-loading-bar); }
+.animate-radar-pulse { animation: radar-pulse 2s ease-out infinite; }
+.animate-blink-green { animation: blink-green 1.5s ease-in-out infinite; }
+.animate-glitch { animation: glitch 0.3s ease-in-out infinite; }
+.animate-scan-line { animation: scan-line 3s linear infinite; }
+.animate-float-up { animation: float-up 0.4s ease-out forwards; }
+.animate-vibrate { animation: vibrate 0.15s ease-in-out infinite; }
+.animate-nuke-flash { animation: nuke-flash 2s ease-in-out forwards; }
+
+.glass {
+  background: rgba(26, 26, 26, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(42, 42, 42, 0.8);
 }
 
-/* Grid background */
 .grid-bg {
   background-image:
     linear-gradient(rgba(42, 42, 42, 0.3) 1px, transparent 1px),
@@ -178,17 +157,8 @@
   background-size: 40px 40px;
 }
 
-/* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 4px;
-}
-::-webkit-scrollbar-track {
-  background: #0D0D0D;
-}
-::-webkit-scrollbar-thumb {
-  background: #2A2A2A;
-  border-radius: 2px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #00FF41;
-}
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: #0D0D0D; }
+::-webkit-scrollbar-thumb { background: #2A2A2A; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #00FF41; }
+

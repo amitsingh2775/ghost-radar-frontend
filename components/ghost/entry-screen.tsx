@@ -23,7 +23,7 @@ export function EntryScreen({ onIdentify }: { onIdentify: (name: string) => void
           </div>
           
           <h1 className="text-xl font-mono font-bold text-foreground tracking-[0.2em] uppercase">
-            ENTER <span className="text-ghost-green text-shadow-glow">Alias</span>
+            ENTER <span className="text-ghost-green text-shadow-glow">Anynomous name</span>
           </h1>
           <p className="text-[10px] font-mono text-muted-foreground/60 tracking-widest uppercase">
             Persistence: 7 Days | Mode: Stealth
@@ -47,7 +47,7 @@ export function EntryScreen({ onIdentify }: { onIdentify: (name: string) => void
             type="submit" disabled={name.trim().length < 2}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-md bg-ghost-green text-primary-foreground font-mono text-sm font-bold hover:bg-ghost-green/90 disabled:opacity-20 transition-all shadow-[0_0_15px_rgba(34,197,94,0.3)] active:scale-95"
           >
-            <span>CONNECT TO SIGNAL</span>
+            <span>Become a Ghoster</span>
             <ChevronRight className="w-4 h-4" />
           </button>
         </form>

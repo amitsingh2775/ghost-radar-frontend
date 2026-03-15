@@ -178,7 +178,7 @@ export function AdminSidebar({
             />
             <Bomb className={`w-3.5 h-3.5 relative z-10 ${nukeHolding ? "animate-vibrate" : ""}`} />
             <span className="relative z-10">
-              {nukeHolding ? "HOLD..." : "GLOBAL NUKE"}
+              {nukeHolding ? "HOLD..." : "Destroy Room"}
             </span>
           </button>
           <p className="text-[8px] font-mono text-muted-foreground/40 text-center mt-1">

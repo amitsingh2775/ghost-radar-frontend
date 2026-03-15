@@ -11,19 +11,39 @@ export function useGhostStore() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
   const [roomUsers, setRoomUsers] = useState<RoomUser[]>([]);
-  const [typingPulse, setTypingPulse] = useState(false);
+  
+  // 🔥 UPDATED: Record typing users { socketId: alias }
+  const [typingUsers, setTypingUsers] = useState<Record<string, string>>({});
+  const typingTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
+
   const [roomName, setRoomName] = useState("");
   const [userAlias, setUserAlias] = useState("");
   const [timerEnd, setTimerEnd] = useState<number | null>(null);
   const [nukeFlash, setNukeFlash] = useState(false);
   const [terminated, setTerminated] = useState(false);
-  const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 🔥 Helper to update typing state
-  const showTypingPulse = useCallback(() => {
-    setTypingPulse(true);
-    if (typingTimeout.current) clearTimeout(typingTimeout.current);
-    typingTimeout.current = setTimeout(() => setTypingPulse(false), 2000);
+  // 🔥 UPDATED: Show typing for specific user with auto-expiry
+  const showTypingPulse = useCallback((socketId: string, alias: string) => {
+    setTypingUsers((prev) => ({ ...prev, [socketId]: alias }));
+
+    if (typingTimeouts.current[socketId]) {
+      clearTimeout(typingTimeouts.current[socketId]);
+    }
+
+    typingTimeouts.current[socketId] = setTimeout(() => {
+      setTypingUsers((prev) => {
+        const next = { ...prev };
+        delete next[socketId];
+        return next;
+      });
+      delete typingTimeouts.current[socketId];
+    }, 3000); // 3 seconds typing expiry
+  }, []);
+
+  const updateMessageHeat = useCallback((messageId: string) => {
+    setMessages((prev) =>
+      prev.map((m) => m.id === messageId ? { ...m, heat: (m.heat || 0) + 1 } : m)
+    );
   }, []);
 
   const resetRoom = useCallback(() => {
@@ -34,14 +54,12 @@ export function useGhostStore() {
     setRoomUsers([]);
     setTimerEnd(null);
     setRoomName("");
-    setTypingPulse(false);
+    setTypingUsers({}); // Clear typing
   }, []);
 
   const revealWhisper = useCallback((messageId: string) => {
     setMessages((prev) =>
-      prev.map((m) =>
-        m.id === messageId ? { ...m, revealed: true } : m
-      )
+      prev.map((m) => m.id === messageId ? { ...m, revealed: true } : m)
     );
   }, []);
 
@@ -53,8 +71,9 @@ export function useGhostStore() {
     messages, setMessages,
     joinRequests, setJoinRequests,
     roomUsers, setRoomUsers,
-    typingPulse, setTypingPulse, 
-    showTypingPulse,
+    typingUsers, // 🔥 Changed
+    showTypingPulse, // 🔥 Changed
+    updateMessageHeat, 
     roomName, setRoomName,
     userAlias, setUserAlias,
     timerEnd, setTimerEnd,

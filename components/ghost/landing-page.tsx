@@ -61,7 +61,7 @@ export function LandingPage({ onEnter, isStatic = false }: LandingPageProps) {
           </div>
         </div>
 
-        {/* Action Button: Hidden if static to prevent CLS */}
+     
         {!isStatic ? (
           <button
             onClick={onEnter}
@@ -71,11 +71,11 @@ export function LandingPage({ onEnter, isStatic = false }: LandingPageProps) {
             <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
           </button>
         ) : (
-          <div className="h-[52px] sm:h-[60px]" /> /* Spacer to hold button spot */
+          <div className="h-[52px] sm:h-[60px]" />
         )}
       </div>
 
-      {/* --- Feature Grid --- */}
+  
       <div className="w-full max-w-6xl mt-6 sm:mt-12">
         <div className="grid grid-cols-3 md:grid-cols-6 gap-2 sm:gap-4">
           <FeatureItem icon={<Lock className="w-4 h-4 md:w-5 md:h-5" />} title="Secure" desc="E2EE Protection" />
