@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Lock, Play, Pause, Square, ShieldAlert, Ghost } from "lucide-react";
+import { Lock, Play, Pause, Square, ShieldAlert, Ghost, Flame } from "lucide-react";
 import { getAudio, deleteAudio } from "@/lib/db";
 
 export function ChatBubble({ message, isOwn, onHeat, onReveal, isTargetUser, currentUserAlias, onExpire }: any) {
@@ -10,20 +10,26 @@ export function ChatBubble({ message, isOwn, onHeat, onReveal, isTargetUser, cur
   const [blobUrl, setBlobUrl] = useState<string | null>(message.voiceData);
   
   const audioContextRef = useRef<AudioContext | null>(null);
-  
- 
   const isWhisper = !!message.isWhisper;
 
-
+  // Access check
   const canAccess = !isWhisper || isOwn || isTargetUser;
-  
-  //  isOpened update - unauthorized people should see it as Locked, not Opened
-  const isOpened = message.isExpired || (message.isVoice && !isOwn && canAccess && !blobUrl && message.playedOnce);
   const isLockedBlur = isWhisper && !canAccess;
+  const isOpened = message.isExpired || (message.isVoice && !isOwn && canAccess && !blobUrl && message.playedOnce);
+
+  //  Heat-based Dynamic Styles
+  const heatLevel = Number(message.heat) || 0;
+  
+  //  0 = Normal, 1-5 = Yellow/Warm, >5 = Fire/Hot
+  const getHeatStyles = () => {
+    if (isLockedBlur) return "";
+    if (heatLevel > 5) return "bg-orange-500/20 border-orange-500/50 shadow-[0_0_15px_rgba(249,115,22,0.3)] text-orange-200 animate-pulse";
+    if (heatLevel > 0) return "bg-ghost-gold/20 border-ghost-gold/50 shadow-[0_0_10px_rgba(255,184,0,0.2)] text-ghost-gold";
+    return "";
+  };
 
   useEffect(() => {
     let active = true;
-    // Recover audio ONLY if access is granted and message isn't expired
     if (message.isVoice && !message.isExpired && !blobUrl && canAccess) {
       const recoverAudio = async () => {
         const blob = await getAudio(message.id);
@@ -82,14 +88,23 @@ export function ChatBubble({ message, isOwn, onHeat, onReveal, isTargetUser, cur
         {!isOwn && (
           <span className="text-[10px] font-mono text-ghost-green/80 ml-1 uppercase tracking-widest flex items-center gap-2">
             {message.alias || "Shadow"}
-            {isWhisper && <span className="text-ghost-gold font-bold">[PRIVATE]</span>}
+            {isWhisper && <span className="text-ghost-gold font-bold">[PRIVATE SIGNAL]</span>}
           </span>
         )}
 
         <div 
-          onDoubleClick={() => { if (isLockedBlur) setShowLol(true); }}
-          className={`relative px-4 py-3 rounded-2xl border transition-all duration-500 shadow-lg 
-            ${isOwn ? "bg-ghost-green/5 text-ghost-green border-ghost-green/30 rounded-tr-none" : "bg-ghost-surface/90 text-foreground border-border rounded-tl-none"} 
+          onDoubleClick={() => { 
+            if (isLockedBlur) {
+                setShowLol(true); 
+            } else if (canAccess && onHeat) {
+                onHeat(message.id);
+            }
+          }}
+          // Heat Styles applied here
+          className={`relative px-4 py-3 rounded-2xl border transition-all duration-700 shadow-lg 
+            ${isOwn && heatLevel === 0 ? "bg-ghost-green/5 text-ghost-green border-ghost-green/30 rounded-tr-none" : ""} 
+            ${!isOwn && heatLevel === 0 ? "bg-ghost-surface/90 text-foreground border-border rounded-tl-none" : ""}
+            ${getHeatStyles()} 
             ${isLockedBlur && !showLol ? "blur-xl opacity-20 cursor-help" : "blur-0 opacity-100"} 
             ${isOpened && !isOwn && !isLockedBlur ? "opacity-40 grayscale border-dashed" : ""}`}
         >
@@ -97,50 +112,71 @@ export function ChatBubble({ message, isOwn, onHeat, onReveal, isTargetUser, cur
             <div className="flex items-center gap-2 py-1 animate-in zoom-in-95 duration-300">
                <ShieldAlert className="w-4 h-4 text-red-500 animate-pulse" />
                <span className="text-[11px] font-black text-red-500 uppercase tracking-tighter">
-                 LOL,Its not for you! 🤫
+                 LOL, Its not for you! 🤫
                </span>
             </div>
-          ) : isLockedBlur && !showLol ? (
-            <div className="flex items-center gap-2">
-               <Ghost className="w-4 h-4 text-ghost-green/20" />
-               <span className="text-[10px] text-transparent select-none">something special for you</span>
+          ) : 
+          isLockedBlur && !showLol ? (
+            <div className="flex items-center gap-3 min-w-[180px] py-1">
+               <Ghost className="w-5 h-5 text-ghost-green/40" />
+               <div className="h-2 flex-1 bg-white/5 rounded-full relative overflow-hidden">
+                  <div className="absolute inset-0 bg-ghost-green/10 animate-pulse" />
+               </div>
+               <span className="text-[9px] text-white/20 uppercase font-black">Locked</span>
             </div>
-          ) : message.isVoice ? (
-            <div className="flex items-center gap-3 min-w-[180px]">
-                <button 
-                  onClick={togglePlay}
-                  disabled={isOpened || isLockedBlur}
-                  className={`p-2.5 rounded-lg transition-all ${isOpened ? "opacity-30" : "hover:bg-ghost-green/10"}`}
-                >
-                  {isOpened ? (
-                    <Square className="w-5 h-5 text-ghost-green/50" strokeWidth={1.5} />
-                  ) : isPlaying ? (
-                    <Pause className="w-5 h-5 text-ghost-green fill-current animate-pulse" />
-                  ) : (
-                    <Square className="w-5 h-5 text-ghost-green fill-current" />
-                  )}
-                </button>
-                <div className="flex-1">
-                   <span className={`text-[10px] font-bold tracking-widest uppercase ${isOpened ? "text-muted-foreground" : "text-ghost-green"}`}>
-                     {isOpened ? "OPENED" : isPlaying ? "PLAYING..." : "VOICE MESSAGE"}
-                   </span>
+          ) : 
+          (
+            <>
+              {message.isVoice ? (
+                <div className="flex items-center gap-3 min-w-[180px]">
+                    <button 
+                      onClick={togglePlay}
+                      disabled={isOpened}
+                      className={`p-2.5 rounded-lg transition-all ${isOpened ? "opacity-30" : "hover:bg-white/10"}`}
+                    >
+                      {isOpened ? (
+                        <Square className="w-5 h-5 opacity-50" strokeWidth={1.5} />
+                      ) : isPlaying ? (
+                        <Pause className="w-5 h-5 fill-current animate-pulse" />
+                      ) : (
+                        <Square className="w-5 h-5 fill-current" />
+                      )}
+                    </button>
+                    <div className="flex-1">
+                       <span className={`text-[10px] font-bold tracking-widest uppercase ${isOpened ? "text-muted-foreground" : ""}`}>
+                         {isOpened ? "OPENED" : isPlaying ? "PLAYING..." : "VOICE SIGNAL"}
+                       </span>
+                    </div>
                 </div>
-            </div>
-          ) : (
-            <p className="break-words flex items-center gap-2 text-sm font-mono">
-              {isWhisper && <Lock className="w-3 h-3 text-ghost-gold shrink-0" />}
-              {message.message}
-            </p>
+              ) : (
+                <p className="break-words flex items-center gap-2 text-sm font-mono font-bold">
+                  {isWhisper && <Lock className="w-3 h-3 shrink-0" />}
+                  {message.message}
+                </p>
+              )}
+            </>
           )}
         </div>
 
-        {!isLockedBlur && (
-          <div className={`flex items-center gap-3 ${isOwn ? "justify-end" : "justify-start"} px-1`}>
-            <span className="text-[8px] font-mono text-muted-foreground/50 italic">
-              {new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}
+        {/* F Time and Heat Display */}
+        <div className={`flex items-center gap-3 ${isOwn ? "justify-end" : "justify-start"} px-1`}>
+          {!isLockedBlur && (
+             <span className="text-[8px] font-mono text-muted-foreground/50 italic">
+               {new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false })}
+             </span>
+          )}
+
+          {/*Flame hamesha dikhega (Heat >= 0) */}
+          <div className="flex items-center gap-1 animate-in zoom-in duration-300">
+            <Flame className={`w-3 h-3 transition-all duration-500 
+              ${heatLevel > 5 ? "text-orange-500 fill-orange-500 animate-bounce" : 
+                heatLevel > 0 ? "text-ghost-gold fill-ghost-gold animate-pulse" : "text-ghost-green/20"}`} />
+            <span className={`text-[9px] font-black transition-colors duration-500 
+              ${heatLevel > 5 ? "text-orange-500" : heatLevel > 0 ? "text-ghost-gold" : "text-ghost-green/30"}`}>
+              {heatLevel}
             </span>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

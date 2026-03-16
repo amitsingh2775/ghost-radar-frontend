@@ -1,14 +1,19 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { X, Shield, UserX, Bomb, Check } from "lucide-react";
 import type { JoinRequest, RoomUser } from "@/lib/types";
 
+// // UPDATED: Interface to match the new Object structure
 interface AdminSidebarProps {
   open: boolean;
   onClose: () => void;
   joinRequests: JoinRequest[];
-  roomUsers: RoomUser[];
+  // // new line added: modified to accept object with users and onlineCount
+  roomUsers: {
+    users: RoomUser[];
+    onlineCount: number;
+  };
   onApprove: (socketId: string) => void;
   onReject: (socketId: string) => void;
   onExile: (socketId: string) => void;
@@ -128,10 +133,12 @@ export function AdminSidebar({
         {/* User Slots */}
         <div className="flex-1 overflow-y-auto px-4 py-3">
           <p className="text-[10px] font-mono text-muted-foreground tracking-wider uppercase mb-2">
-            Shadows Online ({roomUsers.length})
+            {/* // new line added: modified to use roomUsers.onlineCount */}
+            Users Online ({roomUsers?.users?.length || 0})
           </p>
           <div className="flex flex-col gap-1.5">
-            {roomUsers.map((user) => (
+            {/* // new line added: FIXED - Mapping through .users instead of the object itself */}
+            {roomUsers?.users?.map((user) => (
               <div
                 key={user.socketId}
                 className="flex items-center justify-between p-2 rounded border border-border group"

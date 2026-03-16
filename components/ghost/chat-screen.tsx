@@ -197,20 +197,36 @@ export function ChatScreen({
 
       {/* HEADER */}
       <header className="flex items-center justify-between px-3 sm:px-6 py-3 sm:py-4 border-b border-border bg-ghost-surface/80 backdrop-blur-md z-20 shrink-0">
-        <div className="flex-1 overflow-hidden">
-          <span className="text-[10px] text-muted-foreground uppercase tracking-widest truncate block">
-            {roomName || "Neural Pulse"}
-          </span>
-        </div>
-        <div className="shrink-0 px-2">
-          {timerEnd && <CountdownTimer endTime={timerEnd} onExpired={onNuke} />}
-        </div>
-        <div className="flex items-center gap-2 flex-1 justify-end">
-          <button onClick={isAdmin ? () => setSidebarOpen(true) : onExit} className="p-2 border border-border rounded-lg hover:bg-white/5 active:bg-white/10 transition-all">
-            {isAdmin ? <Shield className="w-4 h-4 text-ghost-green" /> : <LogOut className="w-4 h-4 text-red-500" />}
-          </button>
-        </div>
-      </header>
+  <div className="flex-1 overflow-hidden">
+    <span className="text-[10px] text-muted-foreground uppercase tracking-widest truncate block">
+      {roomName || "Neural Pulse"}
+    </span>
+    
+    {/* // new line added: LIVE ENTITY COUNTER UI */}
+    <div className="flex items-center gap-1.5 mt-0.5 transition-all duration-500">
+      <div className="relative flex h-2 w-2">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-ghost-green opacity-75"></span>
+        <span className="relative inline-flex rounded-full h-2 w-2 bg-ghost-green"></span>
+      </div>
+      <span className="text-[9px] font-black text-ghost-green uppercase tracking-[0.2em]">
+        {roomUsers?.onlineCount || 0} users
+      </span>
+    </div>
+  </div>
+
+  <div className="shrink-0 px-2">
+    {timerEnd && <CountdownTimer endTime={timerEnd} onExpired={onNuke} />}
+  </div>
+
+  <div className="flex items-center gap-2 flex-1 justify-end">
+    <button 
+      onClick={isAdmin ? () => setSidebarOpen(true) : onExit} 
+      className="p-2 border border-border rounded-lg hover:bg-white/5 active:bg-white/10 transition-all"
+    >
+      {isAdmin ? <Shield className="w-4 h-4 text-ghost-green" /> : <LogOut className="w-4 h-4 text-red-500" />}
+    </button>
+  </div>
+</header>
 
       {/* MESSAGES AREA */}
       <main className="flex-1 overflow-y-auto overscroll-contain px-3 sm:px-8 py-4 scrollbar-hide">
@@ -219,7 +235,7 @@ export function ChatScreen({
               <ChatBubble key={msg.id} 
               message={msg} 
               isOwn={msg.senderAlias === userAlias}
-              isTargetUser={msg.whisperTarget === userAlias || msg.senderAlias === userAlias}
+             isTargetUser={!msg.isWhisper || msg.whisperTarget === userAlias || msg.senderAlias === userAlias}
               currentUserAlias={userAlias}
               onHeat={onHeatMessage} 
               onReveal={() => onRevealWhisper(msg.id)} 
@@ -277,15 +293,16 @@ export function ChatScreen({
               <UserCircle2 className="w-3 h-3" />
               <span className="text-[9px] font-black uppercase">To:</span>
             </div>
-            {roomUsers.filter((u: RoomUser) => u.alias !== userAlias).map((user: RoomUser) => (
-              <button 
-                key={user.socketId} 
-                onClick={() => setWhisperTarget(user.alias)} 
-                className={`px-3 py-1.5 rounded-lg border text-[10px] font-bold transition-all whitespace-nowrap active:scale-95 ${whisperTarget === user.alias ? "bg-ghost-gold text-black border-ghost-gold shadow-lg shadow-ghost-gold/20" : "text-ghost-gold border-ghost-gold/30 bg-ghost-gold/5"}`}
-              >
-                {user.alias}
-              </button>
-            ))}
+           {roomUsers.users && roomUsers.users.filter((u: RoomUser) => u.alias !== userAlias).map((user: RoomUser) => (
+      <button 
+        key={user.socketId} 
+        // Whisper fix: yahan user.socketId use karna best hai messaging ke liye
+        onClick={() => setWhisperTarget(user.alias)} 
+        className={`px-3 py-1.5 rounded-lg border text-[10px] font-bold transition-all whitespace-nowrap active:scale-95 ${whisperTarget === user.alias ? "bg-ghost-gold text-black border-ghost-gold shadow-lg shadow-ghost-gold/20" : "text-ghost-gold border-ghost-gold/30 bg-ghost-gold/5"}`}
+      >
+        {user.alias}
+      </button>
+    ))}
           </div>
         )}
         

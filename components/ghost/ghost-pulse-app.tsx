@@ -243,7 +243,7 @@ socket.on("voice_chunk", async (payload: any) => {
     });
   
      socket.on("display_pulse_dot", (data: any) => {
-  // 🔥 Server se incoming data check: { socketId, alias }
+  // Server se incoming data check: { socketId, alias }
   if (data?.socketId && data?.alias) {
     store.showTypingPulse(data.socketId, data.alias);
   }
@@ -258,7 +258,7 @@ socket.on("voice_chunk", async (payload: any) => {
       saveSession({ roomId: cleanId, roomName, isAdmin: false, timerEnd: Number(expiresAt) });
     });
 
-    socket.on("room_users_update", (users) => store.setRoomUsers(users));
+    socket.on("room_users_update", (data:any) => store.setRoomUsers(data));
     socket.on("join_request", ({ socketId, alias }) => {
       store.setJoinRequests((prev) => prev.some(r => r.socketId === socketId) ? prev : [...prev, { socketId, alias }]);
     });
@@ -335,10 +335,15 @@ socket.on("voice_chunk", async (payload: any) => {
             socketRef.current?.emit("reject_user", { targetSocketId: id });
             store.setJoinRequests(p => p.filter(r => r.socketId !== id));
           }}
-          onExileUser={(id: string) => {
-            socketRef.current?.emit("exile_user", { targetSocketId: id, roomId: store.currentRoom });
-            store.setRoomUsers(p => p.filter(u => u.socketId !== id));
-          }}
+         onExileUser={(id: string) => {
+    socketRef.current?.emit("exile_user", { targetSocketId: id, roomId: store.currentRoom });
+    // // new line added: Real-time optimistic filter for object state
+    store.setRoomUsers((prev: any) => ({
+      ...prev,
+      users: prev.users.filter((u: any) => u.socketId !== id),
+      onlineCount: Math.max(0, prev.onlineCount - 1)
+    }));
+  }}
           onNuke={() => socketRef.current?.emit("nuke_all", store.currentRoom)}
           onExit={handleExitRoom}
           onTyping={() => socketRef.current?.emit("typing", { roomId: store.currentRoom })}
